@@ -59,16 +59,16 @@ export default function Lobby({ room, myId }: Props) {
       <div style={{
         background: 'var(--bg-secondary)',
         borderRadius: 16,
-        padding: '16px 32px',
+        padding: '16px clamp(16px, 5vw, 32px)',
         textAlign: 'center',
       }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
           ルームコード
         </p>
         <p style={{
-          fontSize: 44,
+          fontSize: 'clamp(32px, 10vw, 44px)',
           fontWeight: 900,
-          letterSpacing: 12,
+          letterSpacing: 'clamp(6px, 3vw, 12px)',
           color: 'var(--warning)',
         }}>
           {room.code}
