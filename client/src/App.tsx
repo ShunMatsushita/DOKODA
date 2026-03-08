@@ -19,6 +19,11 @@ export default function App() {
   const [countdownNum, setCountdownNum] = useState(3);
   const [showRules, setShowRules] = useState(false);
 
+  const showError = useCallback((msg: string) => {
+    setError(msg);
+    setTimeout(() => setError(null), 3000);
+  }, []);
+
   useEffect(() => {
     socket.connect();
 
@@ -49,8 +54,7 @@ export default function App() {
     });
 
     socket.on('error', (message: string) => {
-      setError(message);
-      setTimeout(() => setError(null), 3000);
+      showError(message);
     });
 
     return () => {
@@ -60,17 +64,17 @@ export default function App() {
       socket.off('game:finished');
       socket.off('error');
     };
-  }, []);
+  }, [showError]);
 
   const handleCreate = useCallback((playerName: string) => {
     socket.emit('room:create', playerName, (res) => {
-      if (!res.ok) setError(res.error || '部屋の作成に失敗しました');
+      if (!res.ok) showError(res.error || '部屋の作成に失敗しました');
     });
-  }, []);
+  }, [showError]);
 
   const handleJoin = useCallback((code: string, playerName: string) => {
     socket.emit('room:join', code, playerName, (res) => {
-      if (!res.ok) setError(res.error || '部屋への参加に失敗しました');
+      if (!res.ok) showError(res.error || '部屋への参加に失敗しました');
     });
   }, []);
 
