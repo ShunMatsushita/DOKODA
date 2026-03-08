@@ -74,6 +74,19 @@ DOKODA/
 4. ホストがゲームモード・設定を選んで「ゲーム開始」
 5. 2枚のカードに共通するシンボルを見つけてタップ！
 
+## デプロイ (Render)
+
+Render で Web Service を手動作成:
+
+| 設定項目 | 値 |
+|----------|-----|
+| **Environment** | Node |
+| **Build Command** | `npm ci && npm run build` |
+| **Start Command** | `NODE_ENV=production node server/dist/index.js` |
+| **Environment Variable** | `NODE_ENV` = `production` |
+
+本番ではサーバーがAPI・WebSocket・フロントエンド静的ファイルを一括配信します。
+
 ## ライセンス
 
 MIT
