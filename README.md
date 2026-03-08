@@ -14,6 +14,12 @@
 - 3つのゲームモード
 - リアルタイム WebSocket 通信
 - ホストによるゲーム設定カスタマイズ
+- パスワード付きルーム & URL招待リンク
+- カスタムシンボルのアップロード（ホスト機能）
+- 切断時の自動再接続（30秒猶予期間）
+- PWA対応（ホーム画面に追加可能）
+- Socket.ioイベントのレート制限（DoS対策）
+- モバイル対応のレスポンシブデザイン
 
 ## ゲームモード
 
@@ -25,10 +31,11 @@
 
 ## 技術スタック
 
-- **フロントエンド**: React + TypeScript + Vite
+- **フロントエンド**: React 19 + TypeScript + Vite
 - **バックエンド**: Node.js + Express + Socket.io
 - **共有パッケージ**: TypeScript（型定義・カード生成ロジック・定数）
 - **構成**: npm workspaces によるモノレポ
+- **CI/CD**: GitHub Actions → Render 自動デプロイ
 
 ## セットアップ
 
@@ -38,6 +45,9 @@ npm install
 
 # 開発サーバー起動（フロント: 5173 / バック: 3001）
 npm run dev
+
+# テスト実行
+npm test
 
 # ビルド
 npm run build
@@ -55,9 +65,10 @@ DOKODA/
 ├── server/          # バックエンド（Express + Socket.io）
 │   └── src/
 │       ├── index.ts
-│       ├── room.ts
-│       ├── game.ts
-│       └── events.ts
+│       ├── room.ts       # ルーム管理・再接続・カスタムシンボル
+│       ├── game.ts       # ゲームエンジン
+│       ├── events.ts     # Socket.ioイベントハンドラー
+│       └── rateLimit.ts  # レート制限（DoS対策）
 ├── client/          # フロントエンド（React + Vite）
 │   └── src/
 │       ├── App.tsx
@@ -70,8 +81,8 @@ DOKODA/
 
 ## 遊び方
 
-1. トップ画面で名前を入力して「部屋を作る」
-2. 表示されるルームコードを他のプレイヤーに共有
+1. トップ画面で名前を入力して「部屋を作る」（パスワード設定も可能）
+2. 表示されるルームコードまたはURL招待リンクを他のプレイヤーに共有
 3. 他のプレイヤーはルームコードを入力して「参加する」
 4. ホストがゲームモード・設定を選んで「ゲーム開始」
 5. 2枚のカードに共通するシンボルを見つけてタップ！
@@ -88,6 +99,8 @@ Render で Web Service を手動作成:
 | **Environment Variable** | `NODE_ENV` = `production` |
 
 本番ではサーバーがAPI・WebSocket・フロントエンド静的ファイルを一括配信します。
+
+masterブランチへのプッシュ時にGitHub Actionsで自動デプロイされます。
 
 ## ライセンス
 
