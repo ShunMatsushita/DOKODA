@@ -43,7 +43,7 @@ export default function Result({ players, myId, isHost, gameState, onBackToLobby
       {isTimeAttack ? (
         <div style={{ textAlign: 'center' }}>
           <div style={{
-            fontSize: 40,
+            fontSize: 'clamp(28px, 8vw, 40px)',
             fontWeight: 900,
             color: isCleared ? 'var(--success)' : 'var(--accent)',
           }}>
@@ -58,7 +58,7 @@ export default function Result({ players, myId, isHost, gameState, onBackToLobby
         </div>
       ) : (
         <div style={{
-          fontSize: 44,
+          fontSize: 'clamp(28px, 8vw, 44px)',
           fontWeight: 900,
           color: 'var(--accent)',
           textAlign: 'center',

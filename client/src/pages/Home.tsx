@@ -19,12 +19,12 @@ export default function Home({ onCreateRoom, onJoinRoom }: Props) {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 40,
+      gap: 'clamp(20px, 5vh, 40px)',
       padding: 20,
     }}>
       <div style={{ textAlign: 'center' }}>
         <h1 style={{
-          fontSize: 72,
+          fontSize: 'clamp(48px, 12vw, 72px)',
           fontWeight: 900,
           letterSpacing: 8,
           color: 'var(--accent)',
@@ -33,7 +33,7 @@ export default function Home({ onCreateRoom, onJoinRoom }: Props) {
           DOKODA
         </h1>
         <p style={{
-          fontSize: 24,
+          fontSize: 'clamp(18px, 5vw, 24px)',
           color: 'var(--text-secondary)',
           marginTop: 8,
         }}>
@@ -106,7 +106,7 @@ export default function Home({ onCreateRoom, onJoinRoom }: Props) {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               maxLength={4}
-              style={{ width: '100%', letterSpacing: 8, fontSize: 24 }}
+              style={{ width: '100%', letterSpacing: 8, fontSize: 'clamp(18px, 5vw, 24px)' }}
             />
             <button
               className="btn-primary"

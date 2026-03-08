@@ -22,7 +22,7 @@ export default function Countdown({ count }: Props) {
       <div
         key={count}
         style={{
-          fontSize: 120,
+          fontSize: 'clamp(80px, 25vw, 120px)',
           fontWeight: 900,
           color: 'var(--accent)',
           textShadow: '0 0 60px rgba(233, 69, 96, 0.6)',
