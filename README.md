@@ -81,7 +81,7 @@ Render で Web Service を手動作成:
 | 設定項目 | 値 |
 |----------|-----|
 | **Environment** | Node |
-| **Build Command** | `npm ci && npm run build` |
+| **Build Command** | `npm ci --include=dev && npm run build` |
 | **Start Command** | `NODE_ENV=production node server/dist/index.js` |
 | **Environment Variable** | `NODE_ENV` = `production` |
 
