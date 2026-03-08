@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Socket } from 'socket.io';
 import {
   Card,
@@ -17,6 +18,7 @@ import {
   MAX_CUSTOM_SYMBOL_SIZE,
   MAX_CUSTOM_SYMBOLS,
   TOTAL_SYMBOLS,
+  RECONNECT_GRACE_MS,
 } from 'dokoda-shared';
 
 /** サーバー側のプレイヤー情報（クライアントに送らない情報を含む） */
@@ -24,6 +26,7 @@ export interface ServerPlayer extends Player {
   socketId: string;
   hand: Card[];
   cooldownUntil: number;
+  reconnectToken: string;
 }
 
 /** サーバー側のルーム情報 */
@@ -45,6 +48,7 @@ export interface Room {
   timeAttackTimer: ReturnType<typeof setTimeout> | null;
   countdownTimer: ReturnType<typeof setInterval> | null;
   customSymbols: Map<number, string>; // symbolId -> base64 data URL
+  disconnectTimers: Map<string, ReturnType<typeof setTimeout>>; // socketId -> grace timer
 }
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -53,8 +57,9 @@ export class RoomManager {
   private rooms = new Map<string, Room>();
 
   /** ルームを作成し、作成者をホストとして追加 */
-  createRoom(socket: TypedSocket, playerName: string): Room {
+  createRoom(socket: TypedSocket, playerName: string): { room: Room; token: string } {
     const code = this.generateRoomCode();
+    const token = this.generateToken();
 
     const player: ServerPlayer = {
       id: socket.id,
@@ -66,6 +71,7 @@ export class RoomManager {
       isHost: true,
       hand: [],
       cooldownUntil: 0,
+      reconnectToken: token,
     };
 
     const room: Room = {
@@ -91,12 +97,13 @@ export class RoomManager {
       timeAttackTimer: null,
       countdownTimer: null,
       customSymbols: new Map(),
+      disconnectTimers: new Map(),
     };
 
     this.rooms.set(code, room);
     socket.join(code);
 
-    return room;
+    return { room, token };
   }
 
   /** 既存のルームに参加 */
@@ -104,7 +111,7 @@ export class RoomManager {
     socket: TypedSocket,
     code: string,
     playerName: string
-  ): { ok: boolean; room?: Room; error?: string } {
+  ): { ok: boolean; room?: Room; token?: string; error?: string } {
     const room = this.rooms.get(code.toUpperCase());
     if (!room) {
       return { ok: false, error: 'ルームが見つかりません' };
@@ -125,6 +132,7 @@ export class RoomManager {
       }
     }
 
+    const token = this.generateToken();
     const player: ServerPlayer = {
       id: socket.id,
       socketId: socket.id,
@@ -135,13 +143,14 @@ export class RoomManager {
       isHost: false,
       hand: [],
       cooldownUntil: 0,
+      reconnectToken: token,
     };
 
     room.players.set(socket.id, player);
     room.lastActivity = Date.now();
     socket.join(code);
 
-    return { ok: true, room };
+    return { ok: true, room, token };
   }
 
   /** ゲーム終了後にロビーに戻す */
@@ -164,6 +173,18 @@ export class RoomManager {
       room.countdownTimer = null;
     }
 
+    // 切断中プレイヤーを除外（ロビーに戻る時は切断者は除外）
+    for (const [sid, player] of room.players) {
+      if (!player.connected) {
+        room.players.delete(sid);
+        const timer = room.disconnectTimers.get(sid);
+        if (timer) {
+          clearTimeout(timer);
+          room.disconnectTimers.delete(sid);
+        }
+      }
+    }
+
     for (const player of room.players.values()) {
       player.hand = [];
       player.cardCount = 0;
@@ -172,17 +193,55 @@ export class RoomManager {
     }
   }
 
-  /** プレイヤーがルームから退出（切断含む） */
-  leaveRoom(socketId: string): { room: Room; leftPlayer: ServerPlayer } | null {
+  /** プレイヤーを切断状態にする（猶予期間後に除外） */
+  disconnectPlayer(socketId: string, onGraceExpired: (room: Room, player: ServerPlayer) => void): { room: Room; player: ServerPlayer } | null {
+    for (const room of this.rooms.values()) {
+      const player = room.players.get(socketId);
+      if (!player) continue;
+
+      player.connected = false;
+      room.lastActivity = Date.now();
+
+      // 猶予タイマーを設定
+      const timer = setTimeout(() => {
+        room.disconnectTimers.delete(socketId);
+        // まだ切断中なら実際に除外
+        if (room.players.has(socketId) && !room.players.get(socketId)!.connected) {
+          this.removePlayer(socketId);
+          onGraceExpired(room, player);
+        }
+      }, RECONNECT_GRACE_MS);
+
+      room.disconnectTimers.set(socketId, timer);
+
+      return { room, player };
+    }
+
+    return null;
+  }
+
+  /** プレイヤーをルームから完全除外 */
+  removePlayer(socketId: string): { room: Room; leftPlayer: ServerPlayer } | null {
     for (const [code, room] of this.rooms) {
       const player = room.players.get(socketId);
       if (!player) continue;
 
+      // 猶予タイマーをクリア
+      const timer = room.disconnectTimers.get(socketId);
+      if (timer) {
+        clearTimeout(timer);
+        room.disconnectTimers.delete(socketId);
+      }
+
       room.players.delete(socketId);
       room.lastActivity = Date.now();
 
-      // ルームが空になったら削除
-      if (room.players.size === 0) {
+      // ルームが空（全員接続済みのプレイヤーがいない）かチェック
+      const connectedCount = Array.from(room.players.values()).filter(p => p.connected).length;
+      if (room.players.size === 0 || (connectedCount === 0 && room.disconnectTimers.size === 0)) {
+        // 全タイマーをクリア
+        for (const t of room.disconnectTimers.values()) clearTimeout(t);
+        room.disconnectTimers.clear();
         if (room.countdownTimer) {
           clearInterval(room.countdownTimer);
           room.countdownTimer = null;
@@ -195,9 +254,10 @@ export class RoomManager {
         return { room, leftPlayer: player };
       }
 
-      // ホストが抜けた場合は次のプレイヤーをホストに昇格
+      // ホストが抜けた場合は接続中プレイヤーをホストに昇格
       if (room.hostId === socketId) {
-        const nextHost = room.players.values().next().value!;
+        const nextHost = Array.from(room.players.values()).find(p => p.connected)
+          || room.players.values().next().value!;
         nextHost.isHost = true;
         room.hostId = nextHost.socketId;
       }
@@ -206,6 +266,58 @@ export class RoomManager {
     }
 
     return null;
+  }
+
+  /** 再接続: トークンでプレイヤーを検索し、ソケットを紐付け直す */
+  rejoinRoom(
+    socket: TypedSocket,
+    code: string,
+    token: string
+  ): { ok: boolean; room?: Room; error?: string } {
+    const room = this.rooms.get(code.toUpperCase());
+    if (!room) {
+      return { ok: false, error: 'ルームが見つかりません' };
+    }
+
+    // トークンで切断中のプレイヤーを検索
+    let targetPlayer: ServerPlayer | null = null;
+    let oldSocketId: string | null = null;
+
+    for (const [sid, player] of room.players) {
+      if (player.reconnectToken === token) {
+        targetPlayer = player;
+        oldSocketId = sid;
+        break;
+      }
+    }
+
+    if (!targetPlayer || !oldSocketId) {
+      return { ok: false, error: '再接続情報が見つかりません' };
+    }
+
+    // 猶予タイマーをキャンセル
+    const timer = room.disconnectTimers.get(oldSocketId);
+    if (timer) {
+      clearTimeout(timer);
+      room.disconnectTimers.delete(oldSocketId);
+    }
+
+    // ソケットIDを更新
+    room.players.delete(oldSocketId);
+    targetPlayer.id = socket.id;
+    targetPlayer.socketId = socket.id;
+    targetPlayer.connected = true;
+    room.players.set(socket.id, targetPlayer);
+
+    // ホストIDも更新
+    if (room.hostId === oldSocketId) {
+      room.hostId = socket.id;
+    }
+
+    room.lastActivity = Date.now();
+    socket.join(room.code);
+
+    return { ok: true, room };
   }
 
   /** ルームを取得 */
@@ -302,6 +414,11 @@ export class RoomManager {
     room.customSymbols.clear();
     room.lastActivity = Date.now();
     return true;
+  }
+
+  /** ランダムな再接続トークンを生成 */
+  private generateToken(): string {
+    return crypto.randomBytes(16).toString('hex');
   }
 
   /** ランダムなルームコードを生成 */

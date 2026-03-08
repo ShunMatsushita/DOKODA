@@ -16,6 +16,7 @@ const EVENT_LIMITS: Record<string, RateLimitConfig> = {
   // ルーム操作（低頻度で十分）
   'room:create': { windowMs: 5000, maxRequests: 3 },
   'room:join': { windowMs: 5000, maxRequests: 5 },
+  'room:rejoin': { windowMs: 5000, maxRequests: 5 },
   'room:settings': { windowMs: 1000, maxRequests: 5 },
   'game:start': { windowMs: 5000, maxRequests: 3 },
   'game:backToLobby': { windowMs: 3000, maxRequests: 3 },

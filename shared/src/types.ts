@@ -86,8 +86,9 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  'room:create': (playerName: string, callback: (response: { ok: boolean; code?: string; error?: string }) => void) => void;
-  'room:join': (code: string, playerName: string, callback: (response: { ok: boolean; error?: string }) => void) => void;
+  'room:create': (playerName: string, callback: (response: { ok: boolean; code?: string; token?: string; error?: string }) => void) => void;
+  'room:join': (code: string, playerName: string, callback: (response: { ok: boolean; token?: string; error?: string }) => void) => void;
+  'room:rejoin': (code: string, token: string, callback: (response: { ok: boolean; error?: string }) => void) => void;
   'room:settings': (settings: GameSettings) => void;
   'room:uploadSymbol': (symbolId: number, dataUrl: string, callback: (response: { ok: boolean; error?: string }) => void) => void;
   'room:deleteSymbol': (symbolId: number) => void;

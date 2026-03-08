@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import {
   GameSettings,
+  Player,
   ServerToClientEvents,
   ClientToServerEvents,
   MIN_PLAYERS,
@@ -10,12 +11,71 @@ import {
   MAX_TIME_LIMIT_SEC,
   getMinCards,
 } from 'dokoda-shared';
-import { RoomManager } from './room.js';
+import { Room, ServerPlayer, RoomManager } from './room.js';
 import { GameEngine } from './game.js';
 import { checkRateLimit, cleanupRateLimit } from './rateLimit.js';
 
 type TypedIO = Server<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+
+/** 猶予期間超過後のプレイヤー除外処理 */
+function handleGraceExpired(
+  io: TypedIO,
+  roomManager: RoomManager,
+  gameEngine: GameEngine,
+  room: Room,
+  player: ServerPlayer
+): void {
+  if (room.players.size === 0) return;
+
+  const roomInfo = roomManager.getRoomInfo(room);
+  io.to(room.code).emit('room:updated', roomInfo);
+
+  // カウントダウン中に人数不足になったらロビーに戻す
+  if (room.phase === 'countdown') {
+    const connectedCount = Array.from(room.players.values()).filter(p => p.connected).length;
+    const minForStart = room.mode === 'timeAttack' ? 1 : MIN_PLAYERS;
+    if (connectedCount < minForStart) {
+      if (room.countdownTimer) {
+        clearInterval(room.countdownTimer);
+        room.countdownTimer = null;
+      }
+      room.phase = 'lobby';
+      const updatedInfo = roomManager.getRoomInfo(room);
+      io.to(room.code).emit('room:updated', updatedInfo);
+    }
+  }
+
+  // ゲーム中にプレイヤー不足で強制終了
+  const minPlayersForGame = room.mode === 'timeAttack' ? 1 : MIN_PLAYERS;
+  if (room.phase === 'playing' && room.players.size < minPlayersForGame) {
+    room.phase = 'finished';
+    room.finishedAt = Date.now();
+    if (room.timeAttackTimer) {
+      clearTimeout(room.timeAttackTimer);
+      room.timeAttackTimer = null;
+    }
+    const players: Player[] = Array.from(room.players.values()).map((p) => ({
+      id: p.id,
+      name: p.name,
+      score: p.score,
+      cardCount: p.hand.length,
+      connected: p.connected,
+      isHost: p.isHost,
+    }));
+    io.to(room.code).emit('game:finished', players);
+
+    for (const p of room.players.values()) {
+      const state = gameEngine.getGameStateForPlayer(room, p.socketId);
+      io.to(p.socketId).emit('game:state', state);
+    }
+
+    const updatedRoomInfo = roomManager.getRoomInfo(room);
+    io.to(room.code).emit('room:updated', updatedRoomInfo);
+  }
+
+  console.log(`[猶予期間超過] ${player.name} from ${room.code}`);
+}
 
 export function setupSocketEvents(
   io: TypedIO,
@@ -49,11 +109,11 @@ export function setupSocketEvents(
         return;
       }
 
-      const room = roomManager.createRoom(socket, trimmedName);
+      const { room, token } = roomManager.createRoom(socket, trimmedName);
       const roomInfo = roomManager.getRoomInfo(room);
       io.to(room.code).emit('room:updated', roomInfo);
 
-      callback({ ok: true, code: room.code });
+      callback({ ok: true, code: room.code, token });
       console.log(`[ルーム作成] ${room.code} by ${trimmedName}`);
     });
 
@@ -101,8 +161,58 @@ export function setupSocketEvents(
       const roomInfo = roomManager.getRoomInfo(result.room!);
       io.to(result.room!.code).emit('room:updated', roomInfo);
 
-      callback({ ok: true });
+      callback({ ok: true, token: result.token });
       console.log(`[ルーム参加] ${trimmedCode} by ${trimmedName}`);
+    });
+
+    // --- 再接続 ---
+    socket.on('room:rejoin', (code, token, callback) => {
+      if (!checkRateLimit(socket.id, 'room:rejoin')) {
+        callback({ ok: false, error: 'リクエストが多すぎます' });
+        return;
+      }
+
+      if (!code || typeof code !== 'string' || !token || typeof token !== 'string') {
+        callback({ ok: false, error: '無効なリクエストです' });
+        return;
+      }
+
+      const existingRoom = roomManager.getRoomBySocketId(socket.id);
+      if (existingRoom) {
+        callback({ ok: false, error: '既にルームに参加しています' });
+        return;
+      }
+
+      const result = roomManager.rejoinRoom(socket, code.toUpperCase(), token);
+      if (!result.ok) {
+        callback({ ok: false, error: result.error });
+        return;
+      }
+
+      const room = result.room!;
+      const roomInfo = roomManager.getRoomInfo(room);
+      io.to(room.code).emit('room:updated', roomInfo);
+
+      // ゲーム中なら最新のゲーム状態を送信
+      if (room.phase === 'playing' || room.phase === 'finished') {
+        const state = gameEngine.getGameStateForPlayer(room, socket.id);
+        socket.emit('game:state', state);
+
+        if (room.phase === 'finished') {
+          const players: Player[] = Array.from(room.players.values()).map((p) => ({
+            id: p.id,
+            name: p.name,
+            score: p.score,
+            cardCount: p.hand.length,
+            connected: p.connected,
+            isHost: p.isHost,
+          }));
+          socket.emit('game:finished', players);
+        }
+      }
+
+      callback({ ok: true });
+      console.log(`[再接続] ${code} socket=${socket.id}`);
     });
 
     // --- ゲーム設定変更 (ホストのみ) ---
@@ -246,57 +356,28 @@ export function setupSocketEvents(
       console.log(`[切断] ${socket.id}`);
       cleanupRateLimit(socket.id);
 
-      const result = roomManager.leaveRoom(socket.id);
+      const result = roomManager.disconnectPlayer(
+        socket.id,
+        (room, player) => handleGraceExpired(io, roomManager, gameEngine, room, player)
+      );
+
       if (result) {
-        const { room, leftPlayer } = result;
+        const { room, player } = result;
+        // 切断状態を他のプレイヤーに通知
+        const roomInfo = roomManager.getRoomInfo(room);
+        io.to(room.code).emit('room:updated', roomInfo);
 
-        if (room.players.size > 0) {
-          const roomInfo = roomManager.getRoomInfo(room);
-          io.to(room.code).emit('room:updated', roomInfo);
-
-          // カウントダウン中に人数不足になったらロビーに戻す
-          if (room.phase === 'countdown') {
-            const minForStart = room.mode === 'timeAttack' ? 1 : MIN_PLAYERS;
-            if (room.players.size < minForStart) {
-              if (room.countdownTimer) {
-                clearInterval(room.countdownTimer);
-                room.countdownTimer = null;
-              }
-              room.phase = 'lobby';
-              const updatedInfo = roomManager.getRoomInfo(room);
-              io.to(room.code).emit('room:updated', updatedInfo);
-            }
-          }
-
-          const minPlayersForGame = room.mode === 'timeAttack' ? 1 : MIN_PLAYERS;
-          if (room.phase === 'playing' && room.players.size < minPlayersForGame) {
-            room.phase = 'finished';
-            room.finishedAt = Date.now();
-            if (room.timeAttackTimer) {
-              clearTimeout(room.timeAttackTimer);
-              room.timeAttackTimer = null;
-            }
-            const players = Array.from(room.players.values()).map((p) => ({
-              id: p.id,
-              name: p.name,
-              score: p.score,
-              cardCount: p.hand.length,
-              connected: p.connected,
-              isHost: p.isHost,
-            }));
-            io.to(room.code).emit('game:finished', players);
-
-            for (const p of room.players.values()) {
+        // ゲーム中なら全員のゲーム状態を更新（切断表示）
+        if (room.phase === 'playing') {
+          for (const p of room.players.values()) {
+            if (p.connected) {
               const state = gameEngine.getGameStateForPlayer(room, p.socketId);
               io.to(p.socketId).emit('game:state', state);
             }
-
-            const updatedRoomInfo = roomManager.getRoomInfo(room);
-            io.to(room.code).emit('room:updated', updatedRoomInfo);
           }
         }
 
-        console.log(`[退出] ${leftPlayer.name} from ${room.code}`);
+        console.log(`[切断中] ${player.name} from ${room.code} (猶予期間開始)`);
       }
     });
   });
