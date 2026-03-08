@@ -3,6 +3,7 @@ import { socket } from '../socket';
 import type { GameState, MatchResult } from 'dokoda-shared';
 import CardView from '../components/Card';
 import { playCorrect, playWrong } from '../sounds';
+import { vibrateCorrect, vibrateWrong } from '../haptics';
 
 interface Props {
   gameState: GameState;
@@ -40,12 +41,14 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
     const handleMatch = (result: MatchResult) => {
       setLastMatch(result);
       playCorrect();
+      vibrateCorrect();
       setTimeout(() => setLastMatch(null), 1500);
     };
 
     const handleWrong = (data: { cooldownMs: number }) => {
       setCooldown(true);
       playWrong();
+      vibrateWrong();
       setTimeout(() => setCooldown(false), Math.max(0, data.cooldownMs));
     };
 
@@ -172,6 +175,7 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
               onSymbolClick={handleSymbolClick}
               disabled={cooldown}
               customSymbols={customSymbols}
+              highlightSymbolId={lastMatch?.symbolId ?? null}
             />
           )}
         </div>
@@ -187,6 +191,7 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
               onSymbolClick={handleSymbolClick}
               disabled={cooldown}
               customSymbols={customSymbols}
+              highlightSymbolId={lastMatch?.symbolId ?? null}
             />
           ) : (
             <div style={{
