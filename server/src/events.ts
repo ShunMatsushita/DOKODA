@@ -12,6 +12,7 @@ import {
 } from 'dokoda-shared';
 import { RoomManager } from './room.js';
 import { GameEngine } from './game.js';
+import { checkRateLimit, cleanupRateLimit } from './rateLimit.js';
 
 type TypedIO = Server<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -26,6 +27,11 @@ export function setupSocketEvents(
 
     // --- ルーム作成 ---
     socket.on('room:create', (playerName, callback) => {
+      if (!checkRateLimit(socket.id, 'room:create')) {
+        callback({ ok: false, error: 'リクエストが多すぎます。少し待ってください' });
+        return;
+      }
+
       if (!playerName || typeof playerName !== 'string') {
         callback({ ok: false, error: '名前を入力してください' });
         return;
@@ -53,6 +59,11 @@ export function setupSocketEvents(
 
     // --- ルーム参加 ---
     socket.on('room:join', (code, playerName, callback) => {
+      if (!checkRateLimit(socket.id, 'room:join')) {
+        callback({ ok: false, error: 'リクエストが多すぎます。少し待ってください' });
+        return;
+      }
+
       if (!code || typeof code !== 'string') {
         callback({ ok: false, error: 'ルームコードを入力してください' });
         return;
@@ -96,6 +107,8 @@ export function setupSocketEvents(
 
     // --- ゲーム設定変更 (ホストのみ) ---
     socket.on('room:settings', (settings: GameSettings) => {
+      if (!checkRateLimit(socket.id, 'room:settings')) return;
+
       const room = roomManager.getRoomBySocketId(socket.id);
       if (!room) return;
       if (room.hostId !== socket.id) return;
@@ -126,6 +139,11 @@ export function setupSocketEvents(
 
     // --- ゲーム開始 ---
     socket.on('game:start', () => {
+      if (!checkRateLimit(socket.id, 'game:start')) {
+        socket.emit('error', 'リクエストが多すぎます。少し待ってください');
+        return;
+      }
+
       const room = roomManager.getRoomBySocketId(socket.id);
       if (!room) {
         socket.emit('error', 'ルームが見つかりません');
@@ -147,6 +165,8 @@ export function setupSocketEvents(
 
     // --- シンボルクレーム ---
     socket.on('game:claim', (symbolId: number) => {
+      if (!checkRateLimit(socket.id, 'game:claim')) return;
+
       if (typeof symbolId !== 'number' || !Number.isInteger(symbolId) || symbolId < 0) {
         return;
       }
@@ -159,6 +179,8 @@ export function setupSocketEvents(
 
     // --- ロビーに戻る ---
     socket.on('game:backToLobby', () => {
+      if (!checkRateLimit(socket.id, 'game:backToLobby')) return;
+
       const room = roomManager.getRoomBySocketId(socket.id);
       if (!room) return;
       if (room.hostId !== socket.id) return;
@@ -172,6 +194,7 @@ export function setupSocketEvents(
     // --- 切断 ---
     socket.on('disconnect', () => {
       console.log(`[切断] ${socket.id}`);
+      cleanupRateLimit(socket.id);
 
       const result = roomManager.leaveRoom(socket.id);
       if (result) {
