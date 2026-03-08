@@ -38,7 +38,9 @@ export interface Room {
   startedAt: number;
   totalCards: number;
   clearedCards: number;
+  finishedAt: number;
   timeAttackTimer: ReturnType<typeof setTimeout> | null;
+  countdownTimer: ReturnType<typeof setInterval> | null;
 }
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -81,7 +83,9 @@ export class RoomManager {
       startedAt: 0,
       totalCards: 0,
       clearedCards: 0,
+      finishedAt: 0,
       timeAttackTimer: null,
+      countdownTimer: null,
     };
 
     this.rooms.set(code, room);
@@ -145,9 +149,14 @@ export class RoomManager {
     room.startedAt = 0;
     room.totalCards = 0;
     room.clearedCards = 0;
+    room.finishedAt = 0;
     if (room.timeAttackTimer) {
       clearTimeout(room.timeAttackTimer);
       room.timeAttackTimer = null;
+    }
+    if (room.countdownTimer) {
+      clearInterval(room.countdownTimer);
+      room.countdownTimer = null;
     }
 
     for (const player of room.players.values()) {
@@ -169,6 +178,14 @@ export class RoomManager {
 
       // ルームが空になったら削除
       if (room.players.size === 0) {
+        if (room.countdownTimer) {
+          clearInterval(room.countdownTimer);
+          room.countdownTimer = null;
+        }
+        if (room.timeAttackTimer) {
+          clearTimeout(room.timeAttackTimer);
+          room.timeAttackTimer = null;
+        }
         this.rooms.delete(code);
         return { room, leftPlayer: player };
       }

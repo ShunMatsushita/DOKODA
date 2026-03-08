@@ -51,6 +51,7 @@ export interface GameState {
   timeLimitSec: number; // 制限時間 (秒, 0=無制限)
   totalCards: number; // 使用した総カード枚数
   clearedCards: number; // クリア済みカード枚数
+  finishedAt: number; // ゲーム終了時刻 (ms, 0=未終了)
 }
 
 /** マッチ結果 */
@@ -79,7 +80,7 @@ export interface ServerToClientEvents {
   'game:countdown': (count: number) => void;
   'game:finished': (players: Player[]) => void;
   'game:timeUp': () => void;
-  'game:wrong': (data: { cooldownUntil: number }) => void;
+  'game:wrong': (data: { cooldownMs: number }) => void;
   'error': (message: string) => void;
 }
 

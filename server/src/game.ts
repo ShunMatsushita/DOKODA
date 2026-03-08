@@ -43,12 +43,17 @@ export class GameEngine {
     let count = COUNTDOWN_SECONDS;
     this.io.to(room.code).emit('game:countdown', count);
 
-    const interval = setInterval(() => {
+    room.countdownTimer = setInterval(() => {
       count--;
       if (count > 0) {
         this.io.to(room.code).emit('game:countdown', count);
       } else {
-        clearInterval(interval);
+        if (room.countdownTimer) {
+          clearInterval(room.countdownTimer);
+          room.countdownTimer = null;
+        }
+        // ルームが空でないことを確認
+        if (room.players.size === 0) return;
         this.dealAndStart(room);
       }
     }, 1000);
@@ -71,6 +76,7 @@ export class GameEngine {
     room.startedAt = Date.now();
     room.totalCards = cards.length;
     room.clearedCards = 0;
+    room.finishedAt = 0;
 
     const mode = room.settings.mode;
     if (mode === 'tower') {
@@ -95,7 +101,7 @@ export class GameEngine {
     this.sendGameStateToAll(room);
   }
 
-  /** Towerモード: 中央に1枚、残りをプレイヤーに均等に配る */
+  /** Towerモード: 中央に1枚、残りをプレイヤーに均等に配る（余りはラウンドロビン） */
   private dealTowerMode(room: Room, cards: Card[]): void {
     room.centerCard = cards[0];
     room.drawPile = [];
@@ -103,14 +109,21 @@ export class GameEngine {
     const remaining = cards.slice(1);
     const playerArray = Array.from(room.players.values());
     const playerCount = playerArray.length;
-    const cardsPerPlayer = Math.floor(remaining.length / playerCount);
 
-    for (let i = 0; i < playerCount; i++) {
-      const player = playerArray[i];
-      player.hand = remaining.slice(i * cardsPerPlayer, (i + 1) * cardsPerPlayer);
-      player.cardCount = player.hand.length;
+    // 初期化
+    for (const player of playerArray) {
+      player.hand = [];
       player.score = 0;
       player.cooldownUntil = 0;
+    }
+
+    // ラウンドロビンで1枚ずつ配布（余りも均等に分配）
+    for (let i = 0; i < remaining.length; i++) {
+      playerArray[i % playerCount].hand.push(remaining[i]);
+    }
+
+    for (const player of playerArray) {
+      player.cardCount = player.hand.length;
     }
   }
 
@@ -170,7 +183,7 @@ export class GameEngine {
     if (!onPlayerCard || !onCenterCard) {
       player.cooldownUntil = now + room.settings.penaltyCooldown;
       this.io.to(playerId).emit('game:wrong', {
-        cooldownUntil: player.cooldownUntil,
+        cooldownMs: room.settings.penaltyCooldown,
       });
       return;
     }
@@ -275,6 +288,7 @@ export class GameEngine {
 
   private finishGame(room: Room): void {
     room.phase = 'finished';
+    room.finishedAt = Date.now();
 
     if (room.timeAttackTimer) {
       clearTimeout(room.timeAttackTimer);
@@ -326,6 +340,7 @@ export class GameEngine {
       timeLimitSec: room.mode === 'timeAttack' ? room.settings.timeLimitSec : 0,
       totalCards: room.totalCards,
       clearedCards: room.clearedCards,
+      finishedAt: room.finishedAt,
     };
   }
 

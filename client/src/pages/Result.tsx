@@ -22,7 +22,9 @@ export default function Result({ players, myId, isHost, gameState, onBackToLobby
   const isCleared = isTimeAttack && gameState
     ? gameState.clearedCards >= gameState.totalCards - 1
     : false;
-  const elapsedMs = gameState && gameState.startedAt > 0 ? Date.now() - gameState.startedAt : 0;
+  const elapsedMs = gameState && gameState.startedAt > 0
+    ? (gameState.finishedAt > 0 ? gameState.finishedAt : Date.now()) - gameState.startedAt
+    : 0;
 
   return (
     <div style={{

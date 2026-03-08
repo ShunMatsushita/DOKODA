@@ -40,10 +40,9 @@ export default function Game({ gameState, myId }: Props) {
       setTimeout(() => setLastMatch(null), 1500);
     };
 
-    const handleWrong = (data: { cooldownUntil: number }) => {
+    const handleWrong = (data: { cooldownMs: number }) => {
       setCooldown(true);
-      const remaining = data.cooldownUntil - Date.now();
-      setTimeout(() => setCooldown(false), Math.max(0, remaining));
+      setTimeout(() => setCooldown(false), Math.max(0, data.cooldownMs));
     };
 
     const handleTimeUp = () => {

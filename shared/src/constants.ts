@@ -45,8 +45,8 @@ export function getMinCards(mode: string, playerCount: number): number {
       // 中央1枚 + 各プレイヤー1枚 + 山札最低1枚
       return 1 + playerCount + 1;
     case 'timeAttack':
-      // 中央1枚 + 山札最低2枚
-      return 3;
+      // 中央1枚 + 各プレイヤー1枚 + 山札最低1枚
+      return 1 + playerCount + 1;
     default:
       return 1 + playerCount;
   }

@@ -181,8 +181,28 @@ export function setupSocketEvents(
           const roomInfo = roomManager.getRoomInfo(room);
           io.to(room.code).emit('room:updated', roomInfo);
 
-          if (room.phase === 'playing' && room.players.size < MIN_PLAYERS) {
+          // カウントダウン中に人数不足になったらロビーに戻す
+          if (room.phase === 'countdown') {
+            const minForStart = room.mode === 'timeAttack' ? 1 : MIN_PLAYERS;
+            if (room.players.size < minForStart) {
+              if (room.countdownTimer) {
+                clearInterval(room.countdownTimer);
+                room.countdownTimer = null;
+              }
+              room.phase = 'lobby';
+              const updatedInfo = roomManager.getRoomInfo(room);
+              io.to(room.code).emit('room:updated', updatedInfo);
+            }
+          }
+
+          const minPlayersForGame = room.mode === 'timeAttack' ? 1 : MIN_PLAYERS;
+          if (room.phase === 'playing' && room.players.size < minPlayersForGame) {
             room.phase = 'finished';
+            room.finishedAt = Date.now();
+            if (room.timeAttackTimer) {
+              clearTimeout(room.timeAttackTimer);
+              room.timeAttackTimer = null;
+            }
             const players = Array.from(room.players.values()).map((p) => ({
               id: p.id,
               name: p.name,
