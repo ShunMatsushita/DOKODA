@@ -8,6 +8,7 @@ interface Props {
   disabled?: boolean;
   size?: number;
   customSymbols?: Record<number, string>;
+  highlightSymbolId?: number | null;
 }
 
 /** カード上のシンボル配置を計算 (8個を円形に配置) */
@@ -40,7 +41,7 @@ function getRotation(symbolId: number, cardId: number): number {
   return ((symbolId * 137 + cardId * 31) % 360);
 }
 
-export default function Card({ card, onSymbolClick, disabled, size, customSymbols }: Props) {
+export default function Card({ card, onSymbolClick, disabled, size, customSymbols, highlightSymbolId }: Props) {
   const defaultSize = Math.min(280, typeof window !== 'undefined' ? window.innerWidth * 0.42 : 280);
   const actualCardSize = size ?? defaultSize;
   const layout = useMemo(() => getSymbolLayout(card.symbols.length), [card.symbols.length]);
@@ -72,6 +73,7 @@ export default function Card({ card, onSymbolClick, disabled, size, customSymbol
         const rotation = getRotation(symbolId, card.id);
         const actualScale = pos.scale;
         const actualSize = symbolSize * actualScale;
+        const isHighlighted = highlightSymbolId === symbolId;
 
         return (
           <button
@@ -83,7 +85,9 @@ export default function Card({ card, onSymbolClick, disabled, size, customSymbol
               position: 'absolute',
               left: `${pos.x}%`,
               top: `${pos.y}%`,
-              transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+              transform: isHighlighted
+                ? `translate(-50%, -50%) rotate(${rotation}deg) scale(1.35)`
+                : `translate(-50%, -50%) rotate(${rotation}deg)`,
               width: actualSize,
               height: actualSize,
               background: 'transparent',
@@ -93,8 +97,9 @@ export default function Card({ card, onSymbolClick, disabled, size, customSymbol
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'transform 0.1s',
-              zIndex: index === 0 ? 1 : 0,
+              transition: 'transform 0.2s ease, filter 0.2s ease',
+              zIndex: isHighlighted ? 10 : (index === 0 ? 1 : 0),
+              filter: isHighlighted ? 'drop-shadow(0 0 8px var(--success)) drop-shadow(0 0 16px var(--success))' : 'none',
             }}
             onMouseEnter={(e) => {
               if (!disabled) {

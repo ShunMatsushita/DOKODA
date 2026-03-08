@@ -8,6 +8,7 @@ import Result from './pages/Result';
 import Countdown from './pages/Countdown';
 import Rules from './components/Rules';
 import { playCountdown, playStart, playFinish, isMuted, setMuted } from './sounds';
+import { vibrateCountdown, vibrateStart, vibrateFinish } from './haptics';
 import { useTheme } from './useTheme';
 
 const THEME_ICONS: Record<string, string> = {
@@ -50,8 +51,8 @@ export default function App() {
     socket.on('game:countdown', (count: number) => {
       setCountdownNum(count);
       setPage('countdown');
-      if (count > 0) playCountdown();
-      if (count === 0) playStart();
+      if (count > 0) { playCountdown(); vibrateCountdown(); }
+      if (count === 0) { playStart(); vibrateStart(); }
     });
 
     socket.on('game:state', (state: GameState) => {
@@ -65,6 +66,7 @@ export default function App() {
       setFinalPlayers(players);
       setPage('result');
       playFinish();
+      vibrateFinish();
     });
 
     socket.on('error', (message: string) => {
