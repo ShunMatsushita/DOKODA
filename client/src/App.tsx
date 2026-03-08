@@ -7,6 +7,7 @@ import Game from './pages/Game';
 import Result from './pages/Result';
 import Countdown from './pages/Countdown';
 import Rules from './components/Rules';
+import { playCountdown, playStart, playFinish, isMuted, setMuted } from './sounds';
 
 type Page = 'home' | 'lobby' | 'countdown' | 'game' | 'result';
 
@@ -18,6 +19,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [countdownNum, setCountdownNum] = useState(3);
   const [showRules, setShowRules] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(isMuted);
 
   const showError = useCallback((msg: string) => {
     setError(msg);
@@ -39,6 +41,8 @@ export default function App() {
     socket.on('game:countdown', (count: number) => {
       setCountdownNum(count);
       setPage('countdown');
+      if (count > 0) playCountdown();
+      if (count === 0) playStart();
     });
 
     socket.on('game:state', (state: GameState) => {
@@ -51,6 +55,7 @@ export default function App() {
     socket.on('game:finished', (players: Player[]) => {
       setFinalPlayers(players);
       setPage('result');
+      playFinish();
     });
 
     socket.on('error', (message: string) => {
@@ -103,31 +108,64 @@ export default function App() {
         </div>
       )}
 
-      {/* ルールボタン (常に表示) */}
-      <button
-        onClick={() => setShowRules(true)}
-        style={{
-          position: 'fixed',
-          top: 12,
-          right: 12,
-          zIndex: 900,
-          background: 'var(--bg-secondary)',
-          border: '2px solid var(--accent)',
-          color: 'var(--text-primary)',
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          fontSize: 18,
-          fontWeight: 900,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        title="ルール"
-      >
-        ?
-      </button>
+      {/* ヘッダーボタン (常に表示) */}
+      <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 900, display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => {
+            const next = !soundMuted;
+            setSoundMuted(next);
+            setMuted(next);
+          }}
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '2px solid var(--accent)',
+            color: 'var(--text-primary)',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            fontSize: 16,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title={soundMuted ? 'サウンドON' : 'サウンドOFF'}
+        >
+          {soundMuted ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="23" y1="9" x2="17" y2="15"/>
+              <line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          )}
+        </button>
+        <button
+          onClick={() => setShowRules(true)}
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '2px solid var(--accent)',
+            color: 'var(--text-primary)',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            fontSize: 18,
+            fontWeight: 900,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title="ルール"
+        >
+          ?
+        </button>
+      </div>
 
       {/* ルールモーダル */}
       {showRules && <Rules onClose={() => setShowRules(false)} />}
