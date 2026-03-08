@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(gh issue list --state open)",
-      "Bash(gh issue list --state open --json number,title --jq '.[] | \"\"\\\\\\(.number\\) \\\\\\(.title\\)\"\"')"
-    ]
-  }
-}
