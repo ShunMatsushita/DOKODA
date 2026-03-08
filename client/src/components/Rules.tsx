@@ -21,7 +21,7 @@ export default function Rules({ onClose }: Props) {
         style={{
           background: 'var(--bg-secondary)',
           borderRadius: 16,
-          padding: 32,
+          padding: 'clamp(16px, 4vw, 32px)',
           maxWidth: 520,
           width: '100%',
           maxHeight: '85vh',

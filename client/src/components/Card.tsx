@@ -39,16 +39,18 @@ function getRotation(symbolId: number, cardId: number): number {
   return ((symbolId * 137 + cardId * 31) % 360);
 }
 
-export default function Card({ card, onSymbolClick, disabled, size = 280 }: Props) {
+export default function Card({ card, onSymbolClick, disabled, size }: Props) {
+  const defaultSize = Math.min(280, typeof window !== 'undefined' ? window.innerWidth * 0.42 : 280);
+  const actualCardSize = size ?? defaultSize;
   const layout = useMemo(() => getSymbolLayout(card.symbols.length), [card.symbols.length]);
 
-  const symbolSize = size * 0.22;
+  const symbolSize = actualCardSize * 0.22;
 
   return (
     <div
       style={{
-        width: size,
-        height: size,
+        width: actualCardSize,
+        height: actualCardSize,
         borderRadius: '50%',
         background: 'var(--card-bg)',
         border: '4px solid var(--card-border)',

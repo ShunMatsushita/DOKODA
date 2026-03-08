@@ -167,7 +167,6 @@ export default function Game({ gameState, myId }: Props) {
               card={gameState.centerCard}
               onSymbolClick={handleSymbolClick}
               disabled={cooldown}
-              size={250}
             />
           )}
         </div>
@@ -182,11 +181,10 @@ export default function Game({ gameState, myId }: Props) {
               card={gameState.myCard}
               onSymbolClick={handleSymbolClick}
               disabled={cooldown}
-              size={250}
             />
           ) : (
             <div style={{
-              width: 250, height: 250, borderRadius: '50%',
+              width: Math.min(280, window.innerWidth * 0.42), height: Math.min(280, window.innerWidth * 0.42), borderRadius: '50%',
               background: 'var(--bg-secondary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'var(--text-secondary)', fontSize: 14,
