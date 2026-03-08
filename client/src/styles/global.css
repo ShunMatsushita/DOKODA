@@ -4,7 +4,8 @@
   box-sizing: border-box;
 }
 
-:root {
+/* ダーク（デフォルト） */
+:root, [data-theme="dark"] {
   --bg-primary: #1a1a2e;
   --bg-secondary: #16213e;
   --bg-card: #0f3460;
@@ -16,6 +17,51 @@
   --warning: #feca57;
   --card-bg: #ffffff;
   --card-border: #e94560;
+}
+
+/* ライト */
+[data-theme="light"] {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #e0e4ea;
+  --bg-card: #6c63ff;
+  --accent: #e94560;
+  --accent-light: #ff6b81;
+  --text-primary: #1a1a2e;
+  --text-secondary: #555;
+  --success: #00b894;
+  --warning: #f39c12;
+  --card-bg: #ffffff;
+  --card-border: #e94560;
+}
+
+/* オーシャン */
+[data-theme="ocean"] {
+  --bg-primary: #0a192f;
+  --bg-secondary: #112240;
+  --bg-card: #1d3a5c;
+  --accent: #64ffda;
+  --accent-light: #8affe8;
+  --text-primary: #ccd6f6;
+  --text-secondary: #8892b0;
+  --success: #64ffda;
+  --warning: #ffd700;
+  --card-bg: #ffffff;
+  --card-border: #64ffda;
+}
+
+/* サクラ */
+[data-theme="sakura"] {
+  --bg-primary: #2d1b2e;
+  --bg-secondary: #3d2640;
+  --bg-card: #5c3d5e;
+  --accent: #ff9eb1;
+  --accent-light: #ffb8c6;
+  --text-primary: #fff0f3;
+  --text-secondary: #d4a0ab;
+  --success: #98d8c8;
+  --warning: #ffd93d;
+  --card-bg: #fff5f7;
+  --card-border: #ff9eb1;
 }
 
 html, body {
