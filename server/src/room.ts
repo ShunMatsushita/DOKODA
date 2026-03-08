@@ -14,6 +14,9 @@ import {
   ROOM_TIMEOUT,
   DEFAULT_PENALTY_COOLDOWN,
   DEFAULT_TIME_LIMIT_SEC,
+  MAX_CUSTOM_SYMBOL_SIZE,
+  MAX_CUSTOM_SYMBOLS,
+  TOTAL_SYMBOLS,
 } from 'dokoda-shared';
 
 /** サーバー側のプレイヤー情報（クライアントに送らない情報を含む） */
@@ -41,6 +44,7 @@ export interface Room {
   finishedAt: number;
   timeAttackTimer: ReturnType<typeof setTimeout> | null;
   countdownTimer: ReturnType<typeof setInterval> | null;
+  customSymbols: Map<number, string>; // symbolId -> base64 data URL
 }
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -86,6 +90,7 @@ export class RoomManager {
       finishedAt: 0,
       timeAttackTimer: null,
       countdownTimer: null,
+      customSymbols: new Map(),
     };
 
     this.rooms.set(code, room);
@@ -233,6 +238,7 @@ export class RoomManager {
       phase: room.phase,
       mode: room.mode,
       settings: room.settings,
+      customSymbols: Object.fromEntries(room.customSymbols),
     };
   }
 
@@ -249,6 +255,53 @@ export class RoomManager {
     }
 
     return count;
+  }
+
+  /** カスタムシンボルをアップロード */
+  uploadSymbol(
+    room: Room,
+    socketId: string,
+    symbolId: number,
+    dataUrl: string
+  ): { ok: boolean; error?: string } {
+    if (room.hostId !== socketId) {
+      return { ok: false, error: 'ホストのみがシンボルを変更できます' };
+    }
+    if (room.phase !== 'lobby') {
+      return { ok: false, error: 'ロビー中のみ変更できます' };
+    }
+    if (!Number.isInteger(symbolId) || symbolId < 0 || symbolId >= TOTAL_SYMBOLS) {
+      return { ok: false, error: '無効なシンボルIDです' };
+    }
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      return { ok: false, error: '無効な画像形式です' };
+    }
+    if (dataUrl.length > MAX_CUSTOM_SYMBOL_SIZE) {
+      return { ok: false, error: '画像サイズが大きすぎます（200KB以下）' };
+    }
+    if (room.customSymbols.size >= MAX_CUSTOM_SYMBOLS && !room.customSymbols.has(symbolId)) {
+      return { ok: false, error: 'カスタムシンボルの上限に達しました' };
+    }
+
+    room.customSymbols.set(symbolId, dataUrl);
+    room.lastActivity = Date.now();
+    return { ok: true };
+  }
+
+  /** カスタムシンボルを削除 */
+  deleteSymbol(room: Room, socketId: string, symbolId: number): boolean {
+    if (room.hostId !== socketId || room.phase !== 'lobby') return false;
+    room.customSymbols.delete(symbolId);
+    room.lastActivity = Date.now();
+    return true;
+  }
+
+  /** 全カスタムシンボルをリセット */
+  resetSymbols(room: Room, socketId: string): boolean {
+    if (room.hostId !== socketId || room.phase !== 'lobby') return false;
+    room.customSymbols.clear();
+    room.lastActivity = Date.now();
+    return true;
   }
 
   /** ランダムなルームコードを生成 */

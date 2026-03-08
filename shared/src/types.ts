@@ -69,6 +69,7 @@ export interface RoomInfo {
   phase: GamePhase;
   mode: GameMode;
   settings: GameSettings;
+  customSymbols: Record<number, string>; // symbolId -> base64 data URL
 }
 
 // --- Socket.io イベント型定義 ---
@@ -88,6 +89,9 @@ export interface ClientToServerEvents {
   'room:create': (playerName: string, callback: (response: { ok: boolean; code?: string; error?: string }) => void) => void;
   'room:join': (code: string, playerName: string, callback: (response: { ok: boolean; error?: string }) => void) => void;
   'room:settings': (settings: GameSettings) => void;
+  'room:uploadSymbol': (symbolId: number, dataUrl: string, callback: (response: { ok: boolean; error?: string }) => void) => void;
+  'room:deleteSymbol': (symbolId: number) => void;
+  'room:resetSymbols': () => void;
   'game:start': () => void;
   'game:claim': (symbolId: number) => void;
   'game:backToLobby': () => void;

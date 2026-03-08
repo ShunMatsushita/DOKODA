@@ -137,6 +137,56 @@ export function setupSocketEvents(
       io.to(room.code).emit('room:updated', roomInfo);
     });
 
+    // --- カスタムシンボルアップロード (ホストのみ) ---
+    socket.on('room:uploadSymbol', (symbolId, dataUrl, callback) => {
+      if (!checkRateLimit(socket.id, 'room:uploadSymbol')) {
+        callback({ ok: false, error: 'リクエストが多すぎます' });
+        return;
+      }
+
+      const room = roomManager.getRoomBySocketId(socket.id);
+      if (!room) {
+        callback({ ok: false, error: 'ルームが見つかりません' });
+        return;
+      }
+
+      const result = roomManager.uploadSymbol(room, socket.id, symbolId, dataUrl);
+      if (!result.ok) {
+        callback({ ok: false, error: result.error });
+        return;
+      }
+
+      const roomInfo = roomManager.getRoomInfo(room);
+      io.to(room.code).emit('room:updated', roomInfo);
+      callback({ ok: true });
+    });
+
+    // --- カスタムシンボル削除 (ホストのみ) ---
+    socket.on('room:deleteSymbol', (symbolId) => {
+      if (!checkRateLimit(socket.id, 'room:deleteSymbol')) return;
+
+      const room = roomManager.getRoomBySocketId(socket.id);
+      if (!room) return;
+
+      if (roomManager.deleteSymbol(room, socket.id, symbolId)) {
+        const roomInfo = roomManager.getRoomInfo(room);
+        io.to(room.code).emit('room:updated', roomInfo);
+      }
+    });
+
+    // --- カスタムシンボル一括リセット (ホストのみ) ---
+    socket.on('room:resetSymbols', () => {
+      if (!checkRateLimit(socket.id, 'room:resetSymbols')) return;
+
+      const room = roomManager.getRoomBySocketId(socket.id);
+      if (!room) return;
+
+      if (roomManager.resetSymbols(room, socket.id)) {
+        const roomInfo = roomManager.getRoomInfo(room);
+        io.to(room.code).emit('room:updated', roomInfo);
+      }
+    });
+
     // --- ゲーム開始 ---
     socket.on('game:start', () => {
       if (!checkRateLimit(socket.id, 'game:start')) {
