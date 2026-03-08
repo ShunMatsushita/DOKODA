@@ -26,7 +26,7 @@ export function setupSocketEvents(
     console.log(`[接続] ${socket.id}`);
 
     // --- ルーム作成 ---
-    socket.on('room:create', (playerName, callback) => {
+    socket.on('room:create', (playerName, password, callback) => {
       if (!checkRateLimit(socket.id, 'room:create')) {
         callback({ ok: false, error: 'リクエストが多すぎます。少し待ってください' });
         return;
@@ -49,16 +49,17 @@ export function setupSocketEvents(
         return;
       }
 
-      const room = roomManager.createRoom(socket, trimmedName);
+      const trimmedPassword = (typeof password === 'string' ? password : '').trim();
+      const room = roomManager.createRoom(socket, trimmedName, trimmedPassword);
       const roomInfo = roomManager.getRoomInfo(room);
       io.to(room.code).emit('room:updated', roomInfo);
 
       callback({ ok: true, code: room.code });
-      console.log(`[ルーム作成] ${room.code} by ${trimmedName}`);
+      console.log(`[ルーム作成] ${room.code} by ${trimmedName}${trimmedPassword ? ' (パスワードあり)' : ''}`);
     });
 
     // --- ルーム参加 ---
-    socket.on('room:join', (code, playerName, callback) => {
+    socket.on('room:join', (code, playerName, password, callback) => {
       if (!checkRateLimit(socket.id, 'room:join')) {
         callback({ ok: false, error: 'リクエストが多すぎます。少し待ってください' });
         return;
@@ -92,9 +93,10 @@ export function setupSocketEvents(
         return;
       }
 
-      const result = roomManager.joinRoom(socket, trimmedCode, trimmedName);
+      const trimmedPassword = (typeof password === 'string' ? password : '').trim();
+      const result = roomManager.joinRoom(socket, trimmedCode, trimmedName, trimmedPassword);
       if (!result.ok) {
-        callback({ ok: false, error: result.error });
+        callback({ ok: false, needPassword: result.needPassword, error: result.error });
         return;
       }
 

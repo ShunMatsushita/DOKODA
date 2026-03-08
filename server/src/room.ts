@@ -45,6 +45,7 @@ export interface Room {
   timeAttackTimer: ReturnType<typeof setTimeout> | null;
   countdownTimer: ReturnType<typeof setInterval> | null;
   customSymbols: Map<number, string>; // symbolId -> base64 data URL
+  password: string; // 空文字列 = パスワードなし
 }
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -53,7 +54,7 @@ export class RoomManager {
   private rooms = new Map<string, Room>();
 
   /** ルームを作成し、作成者をホストとして追加 */
-  createRoom(socket: TypedSocket, playerName: string): Room {
+  createRoom(socket: TypedSocket, playerName: string, password: string = ''): Room {
     const code = this.generateRoomCode();
 
     const player: ServerPlayer = {
@@ -91,6 +92,7 @@ export class RoomManager {
       timeAttackTimer: null,
       countdownTimer: null,
       customSymbols: new Map(),
+      password,
     };
 
     this.rooms.set(code, room);
@@ -103,8 +105,9 @@ export class RoomManager {
   joinRoom(
     socket: TypedSocket,
     code: string,
-    playerName: string
-  ): { ok: boolean; room?: Room; error?: string } {
+    playerName: string,
+    password: string = ''
+  ): { ok: boolean; room?: Room; needPassword?: boolean; error?: string } {
     const room = this.rooms.get(code.toUpperCase());
     if (!room) {
       return { ok: false, error: 'ルームが見つかりません' };
@@ -116,6 +119,11 @@ export class RoomManager {
 
     if (room.players.size >= MAX_PLAYERS) {
       return { ok: false, error: 'ルームが満員です' };
+    }
+
+    // パスワード検証
+    if (room.password && room.password !== password) {
+      return { ok: false, needPassword: true, error: 'パスワードが違います' };
     }
 
     // 同じ名前のプレイヤーがいないかチェック
@@ -239,6 +247,7 @@ export class RoomManager {
       mode: room.mode,
       settings: room.settings,
       customSymbols: Object.fromEntries(room.customSymbols),
+      hasPassword: room.password.length > 0,
     };
   }
 

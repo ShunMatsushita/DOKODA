@@ -82,15 +82,21 @@ export default function App() {
     };
   }, [showError]);
 
-  const handleCreate = useCallback((playerName: string) => {
-    socket.emit('room:create', playerName, (res) => {
+  const handleCreate = useCallback((playerName: string, password: string) => {
+    socket.emit('room:create', playerName, password, (res) => {
       if (!res.ok) showError(res.error || '部屋の作成に失敗しました');
     });
   }, [showError]);
 
-  const handleJoin = useCallback((code: string, playerName: string) => {
-    socket.emit('room:join', code, playerName, (res) => {
-      if (!res.ok) showError(res.error || '部屋への参加に失敗しました');
+  const handleJoin = useCallback((code: string, playerName: string, password: string) => {
+    socket.emit('room:join', code, playerName, password, (res) => {
+      if (!res.ok) {
+        if (res.needPassword) {
+          showError('パスワードが必要です');
+        } else {
+          showError(res.error || '部屋への参加に失敗しました');
+        }
+      }
     });
   }, [showError]);
 
