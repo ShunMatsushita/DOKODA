@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { socket } from './socket';
 import type { RoomInfo, GameState, Player } from 'dokoda-shared';
 import Home from './pages/Home';
@@ -17,6 +17,33 @@ const THEME_ICONS: Record<string, string> = {
   sakura: '🌸',
 };
 
+const SESSION_KEY = 'dokoda_session';
+
+interface SessionData {
+  roomCode: string;
+  token: string;
+}
+
+function saveSession(roomCode: string, token: string): void {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ roomCode, token }));
+}
+
+function loadSession(): SessionData | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data.roomCode && data.token) return data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(): void {
+  localStorage.removeItem(SESSION_KEY);
+}
+
 type Page = 'home' | 'lobby' | 'countdown' | 'game' | 'result';
 
 export default function App() {
@@ -29,17 +56,58 @@ export default function App() {
   const [countdownNum, setCountdownNum] = useState(3);
   const [showRules, setShowRules] = useState(false);
   const [soundMuted, setSoundMuted] = useState(isMuted);
+  const [disconnected, setDisconnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const rejoinAttempted = useRef(false);
 
   const showError = useCallback((msg: string) => {
     setError(msg);
     setTimeout(() => setError(null), 3000);
   }, []);
 
+  // セッション復帰を試みる
+  const tryRejoin = useCallback(() => {
+    const session = loadSession();
+    if (!session || rejoinAttempted.current) return;
+    rejoinAttempted.current = true;
+    setReconnecting(true);
+
+    socket.emit('room:rejoin', session.roomCode, session.token, (res) => {
+      setReconnecting(false);
+      if (!res.ok) {
+        clearSession();
+        rejoinAttempted.current = false;
+      }
+      // 成功時は room:updated / game:state が届いてページ遷移する
+    });
+  }, []);
+
   useEffect(() => {
     socket.connect();
 
+    socket.on('connect', () => {
+      setDisconnected(false);
+      // ページがhome以外（=ルームにいた）なら再接続を試みる
+      // または初回接続時にセッションがあれば復帰を試みる
+      const session = loadSession();
+      if (session) {
+        rejoinAttempted.current = false;
+        tryRejoin();
+      }
+    });
+
+    socket.on('disconnect', () => {
+      // ルームにいる場合のみ切断オーバーレイを表示
+      const session = loadSession();
+      if (session) {
+        setDisconnected(true);
+      }
+    });
+
     socket.on('room:updated', (roomInfo: RoomInfo) => {
       setRoom(roomInfo);
+      setDisconnected(false);
+      setReconnecting(false);
       if (roomInfo.phase === 'lobby') {
         setPage('lobby');
       } else if (roomInfo.phase === 'countdown') {
@@ -72,23 +140,33 @@ export default function App() {
     });
 
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
       socket.off('room:updated');
       socket.off('game:state');
       socket.off('game:countdown');
       socket.off('game:finished');
       socket.off('error');
     };
-  }, [showError]);
+  }, [showError, tryRejoin]);
 
   const handleCreate = useCallback((playerName: string) => {
     socket.emit('room:create', playerName, (res) => {
-      if (!res.ok) showError(res.error || '部屋の作成に失敗しました');
+      if (!res.ok) {
+        showError(res.error || '部屋の作成に失敗しました');
+      } else if (res.code && res.token) {
+        saveSession(res.code, res.token);
+      }
     });
   }, [showError]);
 
   const handleJoin = useCallback((code: string, playerName: string) => {
     socket.emit('room:join', code, playerName, (res) => {
-      if (!res.ok) showError(res.error || '部屋への参加に失敗しました');
+      if (!res.ok) {
+        showError(res.error || '部屋への参加に失敗しました');
+      } else if (res.token) {
+        saveSession(code.trim().toUpperCase(), res.token);
+      }
     });
   }, [showError]);
 
@@ -96,8 +174,64 @@ export default function App() {
     socket.emit('game:backToLobby');
   }, []);
 
+  // ホームに戻る時はセッションをクリア
+  const handleGoHome = useCallback(() => {
+    clearSession();
+    setRoom(null);
+    setGameState(null);
+    setFinalPlayers([]);
+    setPage('home');
+  }, []);
+
+  // ホーム画面での復帰ボタン
+  const handleRejoinFromHome = useCallback(() => {
+    const session = loadSession();
+    if (!session) return;
+    setReconnecting(true);
+    rejoinAttempted.current = false;
+    tryRejoin();
+  }, [tryRejoin]);
+
+  const savedSession = page === 'home' ? loadSession() : null;
+
   return (
     <div style={{ height: '100%', position: 'relative' }}>
+      {/* 切断オーバーレイ */}
+      {disconnected && page !== 'home' && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          zIndex: 2000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+        }}>
+          <div style={{
+            width: 40, height: 40,
+            border: '4px solid var(--accent)',
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>
+            再接続中...
+          </p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+            接続が切れました。自動的に再接続を試みています
+          </p>
+          <button
+            className="btn-primary"
+            style={{ marginTop: 16, fontSize: 14 }}
+            onClick={handleGoHome}
+          >
+            ホームに戻る
+          </button>
+        </div>
+      )}
+
       {/* エラー表示 */}
       {error && (
         <div style={{
@@ -200,7 +334,39 @@ export default function App() {
 
       {/* ページ */}
       {page === 'home' && (
-        <Home onCreateRoom={handleCreate} onJoinRoom={handleJoin} />
+        <>
+          <Home onCreateRoom={handleCreate} onJoinRoom={handleJoin} />
+          {savedSession && !reconnecting && (
+            <div style={{
+              position: 'fixed',
+              bottom: 20,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 800,
+            }}>
+              <button
+                className="btn-primary"
+                onClick={handleRejoinFromHome}
+                style={{ fontSize: 14, padding: '10px 24px' }}
+              >
+                ルームに戻る ({savedSession.roomCode})
+              </button>
+            </div>
+          )}
+          {reconnecting && (
+            <div style={{
+              position: 'fixed',
+              bottom: 20,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 800,
+              color: 'var(--text-secondary)',
+              fontSize: 14,
+            }}>
+              再接続中...
+            </div>
+          )}
+        </>
       )}
       {page === 'lobby' && room && (
         <Lobby room={room} myId={socket.id || ''} />

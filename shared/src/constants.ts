@@ -55,6 +55,9 @@ export function getMinCards(mode: string, playerCount: number): number {
 /** ルームの自動削除時間 (ms) - 30分 */
 export const ROOM_TIMEOUT = 30 * 60 * 1000;
 
+/** 再接続猶予時間 (ms) - 30秒 */
+export const RECONNECT_GRACE_MS = 30 * 1000;
+
 /** カスタムシンボル: 最大データURLサイズ (バイト) - 約200KB */
 export const MAX_CUSTOM_SYMBOL_SIZE = 200 * 1024;
 
