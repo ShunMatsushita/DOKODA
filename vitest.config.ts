@@ -7,4 +7,10 @@ export default defineConfig({
       'server/src/**/*.test.ts',
     ],
   },
+  resolve: {
+    conditions: ['import', 'module', 'browser', 'default'],
+    alias: {
+      'dokoda-shared': './shared/src/index.ts',
+    },
+  },
 });
