@@ -8,10 +8,19 @@ import Result from './pages/Result';
 import Countdown from './pages/Countdown';
 import Rules from './components/Rules';
 import { playCountdown, playStart, playFinish, isMuted, setMuted } from './sounds';
+import { useTheme } from './useTheme';
+
+const THEME_ICONS: Record<string, string> = {
+  dark: '🌙',
+  light: '☀️',
+  ocean: '🌊',
+  sakura: '🌸',
+};
 
 type Page = 'home' | 'lobby' | 'countdown' | 'game' | 'result';
 
 export default function App() {
+  const { theme, cycleTheme } = useTheme();
   const [page, setPage] = useState<Page>('home');
   const [room, setRoom] = useState<RoomInfo | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -110,6 +119,25 @@ export default function App() {
 
       {/* ヘッダーボタン (常に表示) */}
       <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 900, display: 'flex', gap: 8 }}>
+        <button
+          onClick={cycleTheme}
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '2px solid var(--accent)',
+            color: 'var(--text-primary)',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            fontSize: 18,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title={`テーマ: ${theme}`}
+        >
+          {THEME_ICONS[theme]}
+        </button>
         <button
           onClick={() => {
             const next = !soundMuted;
