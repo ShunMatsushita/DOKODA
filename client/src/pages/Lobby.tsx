@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { socket } from '../socket';
 import type { RoomInfo, GameMode, GameSettings } from 'dokoda-shared';
 import {
   MAX_PENALTY_COOLDOWN,
   TOTAL_CARDS,
+  TOTAL_SYMBOLS,
+  MAX_CUSTOM_SYMBOL_SIZE,
   MIN_TIME_LIMIT_SEC,
   MAX_TIME_LIMIT_SEC,
   getMinCards,
 } from 'dokoda-shared';
+import { SYMBOLS, SYMBOL_NAMES } from '../symbols';
 
 interface Props {
   room: RoomInfo;
@@ -104,6 +107,199 @@ function RoomCode({ code }: { code: string }) {
           )}
         </button>
       </div>
+    </div>
+  );
+}
+
+function SymbolCustomizer({ customSymbols, isHost }: { customSymbols: Record<number, string>; isHost: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const [uploading, setUploading] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedSymbolRef = useRef<number>(0);
+
+  const customCount = Object.keys(customSymbols).length;
+
+  const handleFileSelect = useCallback((symbolId: number) => {
+    selectedSymbolRef.current = symbolId;
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    if (!file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (dataUrl.length > MAX_CUSTOM_SYMBOL_SIZE) {
+        alert('画像サイズが大きすぎます（200KB以下にしてください）');
+        return;
+      }
+      const symbolId = selectedSymbolRef.current;
+      setUploading(symbolId);
+      socket.emit('room:uploadSymbol', symbolId, dataUrl, (res) => {
+        setUploading(null);
+        if (!res.ok) alert(res.error || 'アップロードに失敗しました');
+      });
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleDelete = useCallback((symbolId: number) => {
+    socket.emit('room:deleteSymbol', symbolId);
+  }, []);
+
+  const handleResetAll = useCallback(() => {
+    socket.emit('room:resetSymbols');
+  }, []);
+
+  return (
+    <div style={{
+      background: 'var(--bg-secondary)',
+      borderRadius: 16,
+      padding: 18,
+      width: '100%',
+      maxWidth: 400,
+    }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--text-secondary)',
+          fontSize: 13,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: '100%',
+          padding: 0,
+        }}
+      >
+        <span style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: 10 }}>
+          ▶
+        </span>
+        シンボルカスタマイズ
+        {customCount > 0 && (
+          <span style={{
+            background: 'var(--accent)',
+            color: 'white',
+            fontSize: 10,
+            padding: '1px 5px',
+            borderRadius: 4,
+            fontWeight: 700,
+          }}>
+            {customCount}
+          </span>
+        )}
+        {!isHost && '（ホストのみ）'}
+      </button>
+
+      {expanded && (
+        <div style={{ marginTop: 12 }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
+
+          {isHost && customCount > 0 && (
+            <button
+              onClick={handleResetAll}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--accent)',
+                color: 'var(--accent)',
+                fontSize: 11,
+                padding: '4px 10px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                marginBottom: 10,
+              }}
+            >
+              全てリセット
+            </button>
+          )}
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))',
+            gap: 6,
+            maxHeight: 240,
+            overflowY: 'auto',
+          }}>
+            {Array.from({ length: TOTAL_SYMBOLS }, (_, i) => {
+              const hasCustom = i in customSymbols;
+              const isUploading = uploading === i;
+              const SymbolComponent = SYMBOLS[i];
+
+              return (
+                <div
+                  key={i}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 8,
+                    border: hasCustom ? '2px solid var(--success)' : '2px solid rgba(255,255,255,0.1)',
+                    background: 'var(--bg-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    cursor: isHost ? 'pointer' : 'default',
+                    opacity: isUploading ? 0.5 : 1,
+                  }}
+                  onClick={() => isHost && handleFileSelect(i)}
+                  title={`${SYMBOL_NAMES[i]}${hasCustom ? '（カスタム）' : ''}`}
+                >
+                  {hasCustom ? (
+                    <img
+                      src={customSymbols[i]}
+                      alt={SYMBOL_NAMES[i]}
+                      style={{ width: 32, height: 32, objectFit: 'contain' }}
+                    />
+                  ) : (
+                    SymbolComponent && <SymbolComponent size={32} />
+                  )}
+                  {hasCustom && isHost && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(i);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        background: 'var(--accent)',
+                        color: 'white',
+                        border: 'none',
+                        fontSize: 10,
+                        lineHeight: 1,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -289,6 +485,9 @@ export default function Lobby({ room, myId }: Props) {
           </div>
         )}
       </div>
+
+      {/* シンボルカスタマイズ */}
+      <SymbolCustomizer customSymbols={room.customSymbols} isHost={isHost} />
 
       {/* 開始ボタン */}
       {isHost ? (

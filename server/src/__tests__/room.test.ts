@@ -246,6 +246,97 @@ describe('RoomManager', () => {
     });
   });
 
+  describe('customSymbols', () => {
+    const VALID_DATA_URL = 'data:image/png;base64,iVBOR';
+
+    it('room starts with empty customSymbols', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+      expect(room.customSymbols.size).toBe(0);
+    });
+
+    it('host can upload a custom symbol', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+
+      const result = manager.uploadSymbol(room, 'host', 0, VALID_DATA_URL);
+      expect(result.ok).toBe(true);
+      expect(room.customSymbols.get(0)).toBe(VALID_DATA_URL);
+    });
+
+    it('non-host cannot upload', () => {
+      const host = createMockSocket('host');
+      const room = manager.createRoom(host, 'Host');
+      manager.joinRoom(createMockSocket('joiner'), room.code, 'Joiner');
+
+      const result = manager.uploadSymbol(room, 'joiner', 0, VALID_DATA_URL);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('ホスト');
+    });
+
+    it('rejects upload during non-lobby phase', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+      room.phase = 'playing';
+
+      const result = manager.uploadSymbol(room, 'host', 0, VALID_DATA_URL);
+      expect(result.ok).toBe(false);
+    });
+
+    it('rejects invalid symbol ID', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+
+      expect(manager.uploadSymbol(room, 'host', -1, VALID_DATA_URL).ok).toBe(false);
+      expect(manager.uploadSymbol(room, 'host', 57, VALID_DATA_URL).ok).toBe(false);
+      expect(manager.uploadSymbol(room, 'host', 1.5, VALID_DATA_URL).ok).toBe(false);
+    });
+
+    it('rejects non-image data URL', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+
+      expect(manager.uploadSymbol(room, 'host', 0, 'not-a-data-url').ok).toBe(false);
+      expect(manager.uploadSymbol(room, 'host', 0, 'data:text/plain;base64,abc').ok).toBe(false);
+    });
+
+    it('rejects oversized data URL', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+
+      const big = 'data:image/png;base64,' + 'A'.repeat(300 * 1024);
+      expect(manager.uploadSymbol(room, 'host', 0, big).ok).toBe(false);
+    });
+
+    it('host can delete a custom symbol', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+      manager.uploadSymbol(room, 'host', 5, VALID_DATA_URL);
+
+      expect(manager.deleteSymbol(room, 'host', 5)).toBe(true);
+      expect(room.customSymbols.has(5)).toBe(false);
+    });
+
+    it('host can reset all custom symbols', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+      manager.uploadSymbol(room, 'host', 0, VALID_DATA_URL);
+      manager.uploadSymbol(room, 'host', 1, VALID_DATA_URL);
+
+      expect(manager.resetSymbols(room, 'host')).toBe(true);
+      expect(room.customSymbols.size).toBe(0);
+    });
+
+    it('getRoomInfo includes customSymbols as plain object', () => {
+      const socket = createMockSocket('host');
+      const room = manager.createRoom(socket, 'Host');
+      manager.uploadSymbol(room, 'host', 3, VALID_DATA_URL);
+
+      const info = manager.getRoomInfo(room);
+      expect(info.customSymbols).toEqual({ 3: VALID_DATA_URL });
+    });
+  });
+
   describe('cleanupInactiveRooms', () => {
     it('removes rooms past timeout', () => {
       const socket = createMockSocket('host');

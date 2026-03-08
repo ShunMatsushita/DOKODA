@@ -7,6 +7,7 @@ interface Props {
   onSymbolClick?: (symbolId: number) => void;
   disabled?: boolean;
   size?: number;
+  customSymbols?: Record<number, string>;
 }
 
 /** カード上のシンボル配置を計算 (8個を円形に配置) */
@@ -39,7 +40,7 @@ function getRotation(symbolId: number, cardId: number): number {
   return ((symbolId * 137 + cardId * 31) % 360);
 }
 
-export default function Card({ card, onSymbolClick, disabled, size }: Props) {
+export default function Card({ card, onSymbolClick, disabled, size, customSymbols }: Props) {
   const defaultSize = Math.min(280, typeof window !== 'undefined' ? window.innerWidth * 0.42 : 280);
   const actualCardSize = size ?? defaultSize;
   const layout = useMemo(() => getSymbolLayout(card.symbols.length), [card.symbols.length]);
@@ -64,8 +65,9 @@ export default function Card({ card, onSymbolClick, disabled, size }: Props) {
         const pos = layout[index];
         if (!pos) return null;
 
+        const customDataUrl = customSymbols?.[symbolId];
         const SymbolComponent = SYMBOLS[symbolId];
-        if (!SymbolComponent) return null;
+        if (!customDataUrl && !SymbolComponent) return null;
 
         const rotation = getRotation(symbolId, card.id);
         const actualScale = pos.scale;
@@ -103,7 +105,20 @@ export default function Card({ card, onSymbolClick, disabled, size }: Props) {
               e.currentTarget.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
             }}
           >
-            <SymbolComponent size={actualSize} />
+            {customDataUrl ? (
+              <img
+                src={customDataUrl}
+                alt={SYMBOL_NAMES[symbolId]}
+                style={{
+                  width: actualSize,
+                  height: actualSize,
+                  objectFit: 'contain',
+                  pointerEvents: 'none',
+                }}
+              />
+            ) : (
+              <SymbolComponent size={actualSize} />
+            )}
           </button>
         );
       })}

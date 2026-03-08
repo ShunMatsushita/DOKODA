@@ -6,6 +6,7 @@ import CardView from '../components/Card';
 interface Props {
   gameState: GameState;
   myId: string;
+  customSymbols?: Record<number, string>;
 }
 
 function formatTime(ms: number): string {
@@ -15,7 +16,7 @@ function formatTime(ms: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-export default function Game({ gameState, myId }: Props) {
+export default function Game({ gameState, myId, customSymbols }: Props) {
   const [lastMatch, setLastMatch] = useState<MatchResult | null>(null);
   const [cooldown, setCooldown] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -167,6 +168,7 @@ export default function Game({ gameState, myId }: Props) {
               card={gameState.centerCard}
               onSymbolClick={handleSymbolClick}
               disabled={cooldown}
+              customSymbols={customSymbols}
             />
           )}
         </div>
@@ -181,6 +183,7 @@ export default function Game({ gameState, myId }: Props) {
               card={gameState.myCard}
               onSymbolClick={handleSymbolClick}
               disabled={cooldown}
+              customSymbols={customSymbols}
             />
           ) : (
             <div style={{

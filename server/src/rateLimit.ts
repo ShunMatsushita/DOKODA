@@ -19,6 +19,9 @@ const EVENT_LIMITS: Record<string, RateLimitConfig> = {
   'room:settings': { windowMs: 1000, maxRequests: 5 },
   'game:start': { windowMs: 5000, maxRequests: 3 },
   'game:backToLobby': { windowMs: 3000, maxRequests: 3 },
+  'room:uploadSymbol': { windowMs: 2000, maxRequests: 5 },
+  'room:deleteSymbol': { windowMs: 1000, maxRequests: 5 },
+  'room:resetSymbols': { windowMs: 3000, maxRequests: 3 },
 };
 
 /** デフォルト制限（未定義イベント用） */

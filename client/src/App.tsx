@@ -76,7 +76,7 @@ export default function App() {
     socket.emit('room:join', code, playerName, (res) => {
       if (!res.ok) showError(res.error || '部屋への参加に失敗しました');
     });
-  }, []);
+  }, [showError]);
 
   const handleBackToLobby = useCallback(() => {
     socket.emit('game:backToLobby');
@@ -143,7 +143,7 @@ export default function App() {
         <Countdown count={countdownNum} />
       )}
       {page === 'game' && gameState && (
-        <Game gameState={gameState} myId={socket.id || ''} />
+        <Game gameState={gameState} myId={socket.id || ''} customSymbols={room?.customSymbols} />
       )}
       {page === 'result' && (
         <Result
