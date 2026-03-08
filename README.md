@@ -1,5 +1,7 @@
 # DOKODA (どこだ？)
 
+**[遊ぶ → https://dokoda-ux9t.onrender.com/](https://dokoda-ux9t.onrender.com/)**
+
 ドブル（Dobble / Spot It!）にインスパイアされたオンラインパーティーカードゲーム。
 
 どの2枚のカードにも **必ず1つだけ共通するシンボル** があります。他のプレイヤーより先に見つけてタップしましょう！
