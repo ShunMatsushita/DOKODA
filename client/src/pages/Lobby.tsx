@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { socket } from '../socket';
 import type { RoomInfo, GameMode, GameSettings } from 'dokoda-shared';
 import {
@@ -108,6 +108,40 @@ function RoomCode({ code }: { code: string }) {
   );
 }
 
+/** デバウンス付きスライダーフック: ローカル即時反映 + サーバー遅延送信 */
+function useDebouncedSlider(serverValue: number, isHost: boolean, delay = 150) {
+  const [local, setLocal] = useState(serverValue);
+  const dragging = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // サーバー値が変わったら、ドラッグ中でなければ同期
+  useEffect(() => {
+    if (!dragging.current) {
+      setLocal(serverValue);
+    }
+  }, [serverValue]);
+
+  const onChange = useCallback((value: number, emitFn: (v: number) => void) => {
+    if (!isHost) return;
+    dragging.current = true;
+    setLocal(value);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      emitFn(value);
+      dragging.current = false;
+    }, delay);
+  }, [isHost, delay]);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  return { value: local, onChange };
+}
+
 export default function Lobby({ room, myId }: Props) {
   const isHost = room.players.find((p) => p.id === myId)?.isHost ?? false;
   const canStart = room.settings.mode === 'timeAttack'
@@ -116,14 +150,17 @@ export default function Lobby({ room, myId }: Props) {
   const settings = room.settings;
   const minCards = getMinCards(settings.mode, room.players.length);
 
-  const updateSettings = (partial: Partial<GameSettings>) => {
+  const updateSettings = useCallback((partial: Partial<GameSettings>) => {
     const next = { ...settings, ...partial };
-    // カード枚数が最小未満なら自動調整
     if (next.cardCount > 0 && next.cardCount < getMinCards(next.mode, room.players.length)) {
       next.cardCount = getMinCards(next.mode, room.players.length);
     }
     socket.emit('room:settings', next);
-  };
+  }, [settings, room.players.length]);
+
+  const penaltySlider = useDebouncedSlider(settings.penaltyCooldown, isHost);
+  const cardCountSlider = useDebouncedSlider(settings.cardCount, isHost);
+  const timeLimitSlider = useDebouncedSlider(settings.timeLimitSec, isHost);
 
   const handleStart = () => {
     socket.emit('game:start');
@@ -233,12 +270,12 @@ export default function Lobby({ room, myId }: Props) {
         {/* お手付きペナルティ */}
         <div style={{ marginBottom: 14 }}>
           <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-            お手付きペナルティ: {(settings.penaltyCooldown / 1000).toFixed(1)}秒
+            お手付きペナルティ: {(penaltySlider.value / 1000).toFixed(1)}秒
           </label>
           <input
             type="range" min={0} max={MAX_PENALTY_COOLDOWN} step={100}
-            value={settings.penaltyCooldown}
-            onChange={(e) => isHost && updateSettings({ penaltyCooldown: Number(e.target.value) })}
+            value={penaltySlider.value}
+            onChange={(e) => penaltySlider.onChange(Number(e.target.value), (v) => updateSettings({ penaltyCooldown: v }))}
             disabled={!isHost}
             style={{ width: '100%', accentColor: 'var(--accent)', cursor: isHost ? 'pointer' : 'default' }}
           />
@@ -250,17 +287,16 @@ export default function Lobby({ room, myId }: Props) {
         {/* カード枚数 */}
         <div style={{ marginBottom: settings.mode === 'timeAttack' ? 14 : 0 }}>
           <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-            使用カード枚数: {settings.cardCount === 0 ? `全て（${TOTAL_CARDS}枚）` : `${settings.cardCount}枚`}
-            {settings.cardCount > 0 && settings.cardCount < minCards && ` (最低${minCards}枚)`}
+            使用カード枚数: {cardCountSlider.value === 0 ? `全て（${TOTAL_CARDS}枚）` : `${cardCountSlider.value}枚`}
+            {cardCountSlider.value > 0 && cardCountSlider.value < minCards && ` (最低${minCards}枚)`}
           </label>
           <input
             type="range" min={0} max={TOTAL_CARDS} step={1}
-            value={settings.cardCount}
+            value={cardCountSlider.value}
             onChange={(e) => {
-              if (!isHost) return;
               let val = Number(e.target.value);
               if (val > 0 && val < minCards) val = minCards;
-              updateSettings({ cardCount: val });
+              cardCountSlider.onChange(val, (v) => updateSettings({ cardCount: v }));
             }}
             disabled={!isHost}
             style={{ width: '100%', accentColor: 'var(--accent)', cursor: isHost ? 'pointer' : 'default' }}
@@ -274,12 +310,12 @@ export default function Lobby({ room, myId }: Props) {
         {settings.mode === 'timeAttack' && (
           <div>
             <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-              制限時間: {settings.timeLimitSec}秒（{Math.floor(settings.timeLimitSec / 60)}分{settings.timeLimitSec % 60}秒）
+              制限時間: {timeLimitSlider.value}秒（{Math.floor(timeLimitSlider.value / 60)}分{timeLimitSlider.value % 60}秒）
             </label>
             <input
               type="range" min={MIN_TIME_LIMIT_SEC} max={MAX_TIME_LIMIT_SEC} step={10}
-              value={settings.timeLimitSec}
-              onChange={(e) => isHost && updateSettings({ timeLimitSec: Number(e.target.value) })}
+              value={timeLimitSlider.value}
+              onChange={(e) => timeLimitSlider.onChange(Number(e.target.value), (v) => updateSettings({ timeLimitSec: v }))}
               disabled={!isHost}
               style={{ width: '100%', accentColor: 'var(--accent)', cursor: isHost ? 'pointer' : 'default' }}
             />
