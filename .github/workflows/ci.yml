@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -37,3 +37,12 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+
+    steps:
+      - name: Deploy to Render
+        run: curl -s "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
