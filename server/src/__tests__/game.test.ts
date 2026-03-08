@@ -20,7 +20,7 @@ function createMockSocket(id: string) {
 
 function createRoomWithPlayers(manager: RoomManager, count: number): Room {
   const host = createMockSocket('player-0');
-  const room = manager.createRoom(host, 'Player0');
+  const { room } = manager.createRoom(host, 'Player0');
 
   for (let i = 1; i < count; i++) {
     const socket = createMockSocket(`player-${i}`);

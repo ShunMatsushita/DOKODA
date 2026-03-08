@@ -159,3 +159,7 @@ input[type="text"]:focus {
   50% { background: rgba(0, 210, 211, 0.3); }
   100% { background: rgba(0, 210, 211, 0); }
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
