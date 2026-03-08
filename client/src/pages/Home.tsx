@@ -133,7 +133,16 @@ export default function Home({ onCreateRoom, onJoinRoom }: Props) {
         position: 'absolute',
         bottom: 20,
       }}>
-        2〜8人で遊べるパーティーゲーム
+        1〜8人で遊べるパーティーゲーム
+      </p>
+      <p style={{
+        color: 'var(--text-secondary)',
+        fontSize: 11,
+        position: 'absolute',
+        bottom: 4,
+        opacity: 0.5,
+      }}>
+        © 2025 DOKODA
       </p>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { socket } from '../socket';
 import type { RoomInfo, GameMode, GameSettings } from 'dokoda-shared';
 import {
@@ -18,6 +19,94 @@ const MODE_LABELS: Record<GameMode, { name: string; desc: string }> = {
   well: { name: 'ザ・ウェル', desc: 'カードを多く集めた人の勝ち' },
   timeAttack: { name: 'タイムアタック', desc: '制限時間内に全員で全クリア！' },
 };
+
+function RoomCode({ code }: { code: string }) {
+  const [visible, setVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const maskedCode = '*'.repeat(code.length);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <div style={{
+      background: 'var(--bg-secondary)',
+      borderRadius: 16,
+      padding: '16px clamp(16px, 5vw, 32px)',
+      textAlign: 'center',
+      width: '100%',
+      maxWidth: 400,
+    }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
+        ルームコード
+      </p>
+      <p style={{
+        fontSize: 'clamp(32px, 10vw, 44px)',
+        fontWeight: 900,
+        letterSpacing: 'clamp(6px, 3vw, 12px)',
+        color: 'var(--warning)',
+      }}>
+        {visible ? code : maskedCode}
+      </p>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+        <button
+          onClick={() => setVisible(!visible)}
+          title={visible ? '隠す' : '表示'}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 20,
+            padding: '4px 8px',
+            lineHeight: 1,
+          }}
+        >
+          {visible ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+              <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          )}
+        </button>
+        <button
+          onClick={handleCopy}
+          title={copied ? 'コピーしました' : 'コピー'}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 20,
+            padding: '4px 8px',
+            lineHeight: 1,
+          }}
+        >
+          {copied ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function Lobby({ room, myId }: Props) {
   const isHost = room.players.find((p) => p.id === myId)?.isHost ?? false;
@@ -56,24 +145,7 @@ export default function Lobby({ room, myId }: Props) {
       </h1>
 
       {/* ルームコード */}
-      <div style={{
-        background: 'var(--bg-secondary)',
-        borderRadius: 16,
-        padding: '16px clamp(16px, 5vw, 32px)',
-        textAlign: 'center',
-      }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 6 }}>
-          ルームコード
-        </p>
-        <p style={{
-          fontSize: 'clamp(32px, 10vw, 44px)',
-          fontWeight: 900,
-          letterSpacing: 'clamp(6px, 3vw, 12px)',
-          color: 'var(--warning)',
-        }}>
-          {room.code}
-        </p>
-      </div>
+      <RoomCode code={room.code} />
 
       {/* プレイヤーリスト */}
       <div style={{
