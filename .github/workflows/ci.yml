@@ -34,3 +34,6 @@ jobs:
 
       - name: Build server
         run: npm run build --workspace=server
+
+      - name: Run tests
+        run: npm test
