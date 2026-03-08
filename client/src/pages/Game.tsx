@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { socket } from '../socket';
 import type { GameState, MatchResult } from 'dokoda-shared';
 import CardView from '../components/Card';
+import { playCorrect, playWrong } from '../sounds';
 
 interface Props {
   gameState: GameState;
@@ -37,11 +38,13 @@ export default function Game({ gameState, myId }: Props) {
   useEffect(() => {
     const handleMatch = (result: MatchResult) => {
       setLastMatch(result);
+      playCorrect();
       setTimeout(() => setLastMatch(null), 1500);
     };
 
     const handleWrong = (data: { cooldownMs: number }) => {
       setCooldown(true);
+      playWrong();
       setTimeout(() => setCooldown(false), Math.max(0, data.cooldownMs));
     };
 
