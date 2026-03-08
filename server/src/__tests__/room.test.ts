@@ -447,6 +447,70 @@ describe('RoomManager', () => {
     });
   });
 
+  describe('password', () => {
+    it('creates room without password by default', () => {
+      const socket = createMockSocket('host');
+      const { room } = manager.createRoom(socket, 'Host');
+      expect(room.password).toBe('');
+    });
+
+    it('creates room with password', () => {
+      const socket = createMockSocket('host');
+      const { room } = manager.createRoom(socket, 'Host', 'secret');
+      expect(room.password).toBe('secret');
+    });
+
+    it('allows join with correct password', () => {
+      const host = createMockSocket('host');
+      const { room } = manager.createRoom(host, 'Host', 'mypass');
+
+      const joiner = createMockSocket('joiner');
+      const result = manager.joinRoom(joiner, room.code, 'Joiner', 'mypass');
+      expect(result.ok).toBe(true);
+      expect(room.players.size).toBe(2);
+    });
+
+    it('rejects join with wrong password', () => {
+      const host = createMockSocket('host');
+      const { room } = manager.createRoom(host, 'Host', 'mypass');
+
+      const joiner = createMockSocket('joiner');
+      const result = manager.joinRoom(joiner, room.code, 'Joiner', 'wrong');
+      expect(result.ok).toBe(false);
+      expect(result.needPassword).toBe(true);
+      expect(result.error).toContain('パスワード');
+    });
+
+    it('rejects join without password when room has one', () => {
+      const host = createMockSocket('host');
+      const { room } = manager.createRoom(host, 'Host', 'mypass');
+
+      const joiner = createMockSocket('joiner');
+      const result = manager.joinRoom(joiner, room.code, 'Joiner');
+      expect(result.ok).toBe(false);
+      expect(result.needPassword).toBe(true);
+    });
+
+    it('allows join without password when room has none', () => {
+      const host = createMockSocket('host');
+      const { room } = manager.createRoom(host, 'Host');
+
+      const joiner = createMockSocket('joiner');
+      const result = manager.joinRoom(joiner, room.code, 'Joiner');
+      expect(result.ok).toBe(true);
+    });
+
+    it('getRoomInfo returns hasPassword flag', () => {
+      const host = createMockSocket('host');
+      const { room: roomWithPass } = manager.createRoom(host, 'Host', 'secret');
+      expect(manager.getRoomInfo(roomWithPass).hasPassword).toBe(true);
+
+      const host2 = createMockSocket('host2');
+      const { room: roomNoPass } = manager.createRoom(host2, 'Host2');
+      expect(manager.getRoomInfo(roomNoPass).hasPassword).toBe(false);
+    });
+  });
+
   describe('cleanupInactiveRooms', () => {
     it('removes rooms past timeout', () => {
       const socket = createMockSocket('host');

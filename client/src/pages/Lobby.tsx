@@ -337,6 +337,62 @@ function SymbolCustomizer({ customSymbols, isHost }: { customSymbols: Record<num
   );
 }
 
+function ShareUrl({ code, hasPassword }: { code: string; hasPassword: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <div style={{
+      background: 'var(--bg-secondary)',
+      borderRadius: 16,
+      padding: '12px clamp(16px, 5vw, 32px)',
+      width: '100%',
+      maxWidth: 400,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+    }}>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 11, marginBottom: 2 }}>
+          招待URL {hasPassword && '(パスワード保護)'}
+        </p>
+        <p style={{
+          fontSize: 12,
+          color: 'var(--text-primary)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {url}
+        </p>
+      </div>
+      <button
+        onClick={handleCopy}
+        style={{
+          background: copied ? 'var(--success)' : 'var(--accent)',
+          color: 'white',
+          border: 'none',
+          borderRadius: 8,
+          padding: '8px 14px',
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {copied ? 'OK!' : 'URLをコピー'}
+      </button>
+    </div>
+  );
+}
+
 export default function Lobby({ room, myId }: Props) {
   const isHost = room.players.find((p) => p.id === myId)?.isHost ?? false;
   const canStart = room.settings.mode === 'timeAttack'
@@ -378,6 +434,9 @@ export default function Lobby({ room, myId }: Props) {
 
       {/* ルームコード */}
       <RoomCode code={room.code} />
+
+      {/* 共有URL */}
+      <ShareUrl code={room.code} hasPassword={room.hasPassword} />
 
       {/* プレイヤーリスト */}
       <div style={{

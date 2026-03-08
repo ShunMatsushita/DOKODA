@@ -152,8 +152,8 @@ export default function App() {
     };
   }, [showError, tryRejoin]);
 
-  const handleCreate = useCallback((playerName: string) => {
-    socket.emit('room:create', playerName, (res) => {
+  const handleCreate = useCallback((playerName: string, password: string) => {
+    socket.emit('room:create', playerName, password, (res) => {
       if (!res.ok) {
         showError(res.error || '部屋の作成に失敗しました');
       } else if (res.code && res.token) {
@@ -162,10 +162,14 @@ export default function App() {
     });
   }, [showError]);
 
-  const handleJoin = useCallback((code: string, playerName: string) => {
-    socket.emit('room:join', code, playerName, (res) => {
+  const handleJoin = useCallback((code: string, playerName: string, password: string) => {
+    socket.emit('room:join', code, playerName, password, (res) => {
       if (!res.ok) {
-        showError(res.error || '部屋への参加に失敗しました');
+        if (res.needPassword) {
+          showError('パスワードが必要です');
+        } else {
+          showError(res.error || '部屋への参加に失敗しました');
+        }
       } else if (res.token) {
         saveSession(code.trim().toUpperCase(), res.token);
       }

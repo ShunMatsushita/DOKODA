@@ -1,14 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props {
-  onCreateRoom: (name: string) => void;
-  onJoinRoom: (code: string, name: string) => void;
+  onCreateRoom: (name: string, password: string) => void;
+  onJoinRoom: (code: string, name: string, password: string) => void;
 }
 
 export default function Home({ onCreateRoom, onJoinRoom }: Props) {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [usePassword, setUsePassword] = useState(false);
   const [mode, setMode] = useState<'select' | 'create' | 'join'>('select');
+
+  // URL パラメータからルームコードを読み取り
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room');
+    if (roomCode) {
+      setCode(roomCode.toUpperCase().slice(0, 4));
+      setMode('join');
+      // URLからパラメータを除去（ブラウザ履歴を汚さない）
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const isNameValid = name.trim().length > 0;
 
@@ -81,17 +95,47 @@ export default function Home({ onCreateRoom, onJoinRoom }: Props) {
 
         {mode === 'create' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', alignItems: 'center' }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              fontSize: 14,
+              width: '100%',
+            }}>
+              <input
+                type="checkbox"
+                checked={usePassword}
+                onChange={(e) => {
+                  setUsePassword(e.target.checked);
+                  if (!e.target.checked) setPassword('');
+                }}
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              パスワードを設定
+            </label>
+            {usePassword && (
+              <input
+                type="password"
+                placeholder="パスワード"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                maxLength={20}
+                style={{ width: '100%' }}
+              />
+            )}
             <button
               className="btn-primary"
               style={{ width: '100%' }}
-              onClick={() => onCreateRoom(name.trim())}
+              onClick={() => onCreateRoom(name.trim(), usePassword ? password : '')}
             >
               部屋を作成
             </button>
             <button
               className="btn-secondary"
               style={{ width: '100%', fontSize: 14, padding: '8px 16px' }}
-              onClick={() => setMode('select')}
+              onClick={() => { setMode('select'); setPassword(''); setUsePassword(false); }}
             >
               戻る
             </button>
@@ -108,18 +152,26 @@ export default function Home({ onCreateRoom, onJoinRoom }: Props) {
               maxLength={4}
               style={{ width: '100%', letterSpacing: 8, fontSize: 'clamp(18px, 5vw, 24px)' }}
             />
+            <input
+              type="password"
+              placeholder="パスワード（任意）"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={20}
+              style={{ width: '100%' }}
+            />
             <button
               className="btn-primary"
               style={{ width: '100%' }}
               disabled={code.length !== 4}
-              onClick={() => onJoinRoom(code, name.trim())}
+              onClick={() => onJoinRoom(code, name.trim(), password)}
             >
               参加
             </button>
             <button
               className="btn-secondary"
               style={{ width: '100%', fontSize: 14, padding: '8px 16px' }}
-              onClick={() => setMode('select')}
+              onClick={() => { setMode('select'); setPassword(''); }}
             >
               戻る
             </button>
