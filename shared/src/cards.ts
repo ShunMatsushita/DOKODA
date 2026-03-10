@@ -84,3 +84,18 @@ export function shuffleCards(cards: Card[]): Card[] {
   }
   return shuffled;
 }
+
+/**
+ * 各カード内のシンボル配列をシャッフル (Fisher-Yates)
+ * カード上のシンボル位置をランダム化する
+ */
+export function shuffleSymbolsInCards(cards: Card[]): Card[] {
+  return cards.map((card) => {
+    const symbols = [...card.symbols];
+    for (let i = symbols.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [symbols[i], symbols[j]] = [symbols[j], symbols[i]];
+    }
+    return { ...card, symbols };
+  });
+}

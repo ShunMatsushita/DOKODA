@@ -8,6 +8,7 @@ import {
   ClientToServerEvents,
   generateCards,
   shuffleCards,
+  shuffleSymbolsInCards,
   MIN_PLAYERS,
   COUNTDOWN_SECONDS,
   getMinCards,
@@ -62,7 +63,7 @@ export class GameEngine {
   }
 
   private dealAndStart(room: Room): void {
-    let cards = shuffleCards(generateCards());
+    let cards = shuffleSymbolsInCards(shuffleCards(generateCards()));
 
     // カード枚数制限（最小枚数を保証）
     const minCards = getMinCards(room.settings.mode, room.players.size);

@@ -42,11 +42,15 @@ function getRotation(symbolId: number, cardId: number): number {
 }
 
 export default function Card({ card, onSymbolClick, disabled, size, customSymbols, highlightSymbolId }: Props) {
-  const defaultSize = Math.min(280, typeof window !== 'undefined' ? window.innerWidth * 0.42 : 280);
+  const defaultSize = typeof window !== 'undefined'
+    ? Math.min(280, window.innerWidth * 0.55, (window.innerHeight - 160) * 0.42)
+    : 280;
   const actualCardSize = size ?? defaultSize;
   const layout = useMemo(() => getSymbolLayout(card.symbols.length), [card.symbols.length]);
 
-  const symbolSize = actualCardSize * 0.22;
+  // Ensure symbols meet minimum 44px tap target on outer ring (scale 0.8)
+  const minSymbolSize = 44 / 0.8;
+  const symbolSize = Math.max(actualCardSize * 0.24, minSymbolSize);
 
   return (
     <div

@@ -242,7 +242,7 @@ export default function App() {
       {error && (
         <div style={{
           position: 'fixed',
-          top: 20,
+          top: 'calc(20px + env(safe-area-inset-top, 0px))',
           left: '50%',
           transform: 'translateX(-50%)',
           background: 'rgba(233, 69, 96, 0.95)',
@@ -258,7 +258,7 @@ export default function App() {
       )}
 
       {/* ヘッダーボタン (常に表示) */}
-      <div style={{ position: 'fixed', top: 12, right: 12, zIndex: 900, display: 'flex', gap: 8 }}>
+      <div style={{ position: 'fixed', top: 'calc(12px + env(safe-area-inset-top, 0px))', right: 'calc(12px + env(safe-area-inset-right, 0px))', zIndex: 900, display: 'flex', gap: 8 }}>
         <button
           onClick={cycleTheme}
           style={{
