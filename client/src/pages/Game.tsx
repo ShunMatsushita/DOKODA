@@ -124,11 +124,14 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
       </div>
 
       {/* スコアバー */}
-      <div style={{
+      <div className="score-bar" style={{
         display: 'flex',
         gap: 6,
-        flexWrap: 'wrap',
+        flexWrap: 'nowrap',
         justifyContent: 'center',
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
         width: '100%',
         flexShrink: 0,
       }}>
@@ -143,6 +146,8 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
               display: 'flex',
               gap: 5,
               alignItems: 'center',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             <span style={{ fontWeight: 700 }}>{p.name}</span>
@@ -195,7 +200,9 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
             />
           ) : (
             <div style={{
-              width: Math.min(280, window.innerWidth * 0.42), height: Math.min(280, window.innerWidth * 0.42), borderRadius: '50%',
+              width: Math.min(280, window.innerWidth * 0.55, (window.innerHeight - 160) * 0.42),
+              height: Math.min(280, window.innerWidth * 0.55, (window.innerHeight - 160) * 0.42),
+              borderRadius: '50%',
               background: 'var(--bg-secondary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'var(--text-secondary)', fontSize: 14,
