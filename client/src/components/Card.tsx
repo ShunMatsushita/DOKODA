@@ -11,6 +11,9 @@ interface Props {
   highlightSymbolId?: number | null;
 }
 
+const OUTER_SYMBOL_SCALE = 0.8;
+const MIN_TAP_TARGET_PX = 44;
+
 /** カード上のシンボル配置を計算 (8個を円形に配置) */
 function getSymbolLayout(count: number): Array<{ x: number; y: number; scale: number }> {
   if (count <= 0) return [];
@@ -28,7 +31,7 @@ function getSymbolLayout(count: number): Array<{ x: number; y: number; scale: nu
     positions.push({
       x: 50 + radius * Math.cos(angle),
       y: 50 + radius * Math.sin(angle),
-      scale: 0.8,
+      scale: OUTER_SYMBOL_SCALE,
     });
   }
 
@@ -48,8 +51,7 @@ export default function Card({ card, onSymbolClick, disabled, size, customSymbol
   const actualCardSize = size ?? defaultSize;
   const layout = useMemo(() => getSymbolLayout(card.symbols.length), [card.symbols.length]);
 
-  // Ensure symbols meet minimum 44px tap target on outer ring (scale 0.8)
-  const minSymbolSize = 44 / 0.8;
+  const minSymbolSize = MIN_TAP_TARGET_PX / OUTER_SYMBOL_SCALE;
   const symbolSize = Math.max(actualCardSize * 0.24, minSymbolSize);
 
   return (

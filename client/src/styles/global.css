@@ -92,6 +92,10 @@ input {
   font-size: inherit;
 }
 
+.score-bar::-webkit-scrollbar {
+  display: none;
+}
+
 .btn-primary {
   background: var(--accent);
   color: white;

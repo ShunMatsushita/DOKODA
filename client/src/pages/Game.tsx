@@ -124,12 +124,14 @@ export default function Game({ gameState, myId, customSymbols }: Props) {
       </div>
 
       {/* スコアバー */}
-      <div style={{
+      <div className="score-bar" style={{
         display: 'flex',
         gap: 6,
         flexWrap: 'nowrap',
         justifyContent: 'center',
         overflowX: 'auto',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
         width: '100%',
         flexShrink: 0,
       }}>
